@@ -1,0 +1,46 @@
+{
+  "translation": {
+    "index": {
+      "title": "markkinat",
+      "title2": "Kauppapaikan kojetaulu",
+      "materials": "tarvikkeet",
+      "work": "työ",
+      "request": "Pyyntöni",
+      "offers": "Tarjoukseni",
+      "jobs": "Tallennetut työt",
+      "contract": "Omat sopimukset",
+      "my_bids": {
+        "make_offer": "Tehdä tarjous",
+        "make_request": "Tee pyyntö",
+        "see_listings": "Katso luettelot"
+      },
+      "my_request": {
+        "accepted": "Hyväksytyt",
+        "declined": "vähentynyt",
+        "expired": "Vanhentunut"
+      }
+    },
+    "sidebar": {
+      "pro_desk": "Prodesk",
+      "feeds": "syötteet",
+      "create_listing": "Luo yritystiedot",
+      "see_listing": "katso listaus"
+    },
+    "account": {
+      "title": "tilin tiedot",
+      "first_name": "Etunimi",
+      "last_name": "Sukunimi",
+      "address": "Osoite",
+      "zip": "postinumero",
+      "sub_contractors": "Alihankkijat",
+      "phone": "Puhelin",
+      "material_supplier": "Materiaalien toimittaja",
+      "email": "Sähköposti",
+      "old_password": "Nykyinen salasana",
+      "password": "uusi salasana",
+      "language": "Oletuskieli",
+      "my_account": "Tilini",
+      "logout": "Kirjautua ulos"
+    }
+  }
+}
