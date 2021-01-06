@@ -1,28 +1,42 @@
 import React, { Component } from "react";
 import axios from "axios";
 import Header from "../../shared/Header";
+import { Link } from "react-router-dom";
 import BussinessSidebar from "../../shared/BussinessSidebar";
 import { Helper, url } from "../../../helper/helper";
 import Alert from "react-bootstrap/Alert";
+import Spinner from "react-bootstrap/Spinner";
 import { withTranslation } from "react-i18next";
 
 class MyResources extends Component {
   state = {
     first_name: "",
     last_name: "",
+    phone: "",
     email: "",
     company: "",
-    type: "",
+    type: "Client",
+    type_err: false,
     success: 0,
-    errors: [],
+    loading: false,
+    errors: null,
+    email_unq: null,
   };
 
   componentDidMount = (params) => {
+    this._isMounted = true;
+    this.axiosCancelSource = axios.CancelToken.source();
+
     this.myRef = React.createRef();
-    this.loadData();
+    this.loadData(this.axiosCancelSource);
   };
 
-  loadData = async () => {
+  componentWillUnmount() {
+    this._isMounted = false;
+    this.axiosCancelSource.cancel();
+  }
+
+  loadData = async (axiosCancelSource) => {
     if (this.props.match.params.id) {
       const token = await localStorage.getItem("token");
       const response = await axios.get(
@@ -31,6 +45,7 @@ class MyResources extends Component {
           headers: {
             Authorization: `Bearer ${token}`,
           },
+          cancelToken: axiosCancelSource.token,
         }
       );
       if (response.status === 200) {
@@ -40,6 +55,7 @@ class MyResources extends Component {
           email,
           company,
           type,
+          phone,
         } = response.data.data;
         this.setState({
           first_name: first_name,
@@ -47,6 +63,7 @@ class MyResources extends Component {
           email: email,
           company: company,
           type: type,
+          phone,
         });
       }
     }
@@ -54,11 +71,15 @@ class MyResources extends Component {
 
   handleSubmit = async (event) => {
     event.preventDefault();
-    const token = await localStorage.getItem("token");
 
+    this.setState({ email_unq: null, errors: null });
+
+    const token = await localStorage.getItem("token");
+    this.setState({ loading: true });
     const data = new FormData();
     data.set("first_name", this.state.first_name);
     data.set("last_name", this.state.last_name);
+    data.set("phone", this.state.phone);
     data.set("email", this.state.email);
     data.set("company", this.state.company);
     data.set("type", this.state.type);
@@ -69,14 +90,32 @@ class MyResources extends Component {
         },
       })
       .then((res) => {
-        this.setState({ success: 1 });
+        this.setState({
+          success: 1,
+          first_name: "",
+          last_name: "",
+          phone: "",
+          email: "",
+          company: "",
+          type: "",
+          loading: false,
+        });
         this.myRef.current.scrollTo(0, 0);
+        this.props.history.push("/customers-list");
       })
       .catch((err) => {
-        Object.entries(err.response.data.error).map(([key, value]) => {
-          this.setState({ errors: err.response.data.error });
-        });
-        this.setState({ success: 2 });
+        this.setState({ loading: false });
+        if (err.response.status === 406) {
+          if (err.response.data.error.email) {
+            this.setState({
+              email_unq: err.response.data.error.email[0],
+            });
+          }
+        }
+        if (err.response.status === 500) {
+          this.setState({ errors: "Some Issue Occured" });
+        }
+        // this.setState({ success: 2 });
         this.myRef.current.scrollTo(0, 0);
       });
   };
@@ -84,29 +123,38 @@ class MyResources extends Component {
   handleUpdate = async (event) => {
     event.preventDefault();
     const token = await localStorage.getItem("token");
-
+    this.setState({ loading: true });
     const params = {
       first_name: this.state.first_name,
       last_name: this.state.last_name,
       email: this.state.email,
       company: this.state.company,
       type: this.state.type,
+      phone: this.state.phone,
     };
 
-    const response = await axios.put(
-      `${url}/api/resource/update/${this.props.match.params.id}`,
-      null,
-      {
+    axios
+      .put(`${url}/api/resource/update/${this.props.match.params.id}`, null, {
         params: params,
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
-    );
-    if (response.status === 200) {
-      this.setState({ success: 1 });
-      this.myRef.current.scrollTo(0, 0);
-    }
+      })
+      .then((result) => {
+        this.setState({ success: 1 });
+        this.myRef.current.scrollTo(0, 0);
+        this.props.history.push("/customers-list");
+      })
+      .catch((err) => {
+        if (err.response.status === 406) {
+          if (err.response.data.error.email) {
+            this.setState({
+              email_unq: err.response.data.error.email[0],
+            });
+          }
+        }
+        this.setState({ loading: false });
+      });
   };
 
   handleChange = (event) => {
@@ -117,7 +165,14 @@ class MyResources extends Component {
   render() {
     const { t, i18n } = this.props;
 
-    let alert;
+    let alert, loading;
+    if (this.state.loading === true) {
+      loading = (
+        <Spinner animation="border" role="status">
+          <span className="sr-only">Loading...</span>
+        </Spinner>
+      );
+    }
     if (this.state.success === 1) {
       alert = (
         <Alert variant="success" style={{ fontSize: "13px" }}>
@@ -144,9 +199,13 @@ class MyResources extends Component {
         <div class="sidebar-toggle"></div>
         <nav aria-label="breadcrumb">
           <ol className="breadcrumb">
-            <li className="breadcrumb-item active" aria-current="page">
+            <Link
+              to="/business-dashboard"
+              className="breadcrumb-item active"
+              aria-current="page"
+            >
               {t("mycustomer.heading")}
-            </li>
+            </Link>
             <li className="breadcrumb-item active" aria-current="page">
               {t("mycustomer.heading_2")}
             </li>
@@ -184,6 +243,7 @@ class MyResources extends Component {
                             className="form-control"
                             type="text"
                             value={this.state.first_name}
+                            required
                           />
                         </div>
                       </div>
@@ -199,6 +259,7 @@ class MyResources extends Component {
                             className="form-control"
                             type="text"
                             value={this.state.last_name}
+                            required
                           />
                         </div>
                       </div>
@@ -212,7 +273,11 @@ class MyResources extends Component {
                             className="form-control"
                             type="email"
                             value={this.state.email}
+                            required
                           />
+                          <p style={{ color: "#eb516d " }}>
+                            {this.state.email_unq ? this.state.email_unq : null}
+                          </p>
                         </div>
                       </div>
                       <div className="col-xl-4 col-lg-5 col-md-6 offset-xl-1">
@@ -225,31 +290,41 @@ class MyResources extends Component {
                             className="form-control"
                             type="text"
                             value={this.state.company}
+                            required
                           />
                         </div>
                       </div>
+
                       <div className="col-xl-4 col-lg-5 col-md-6">
                         <div className="form-group">
-                          <label for="type">{t("account.type")}</label>
-                          <select
+                          <label for="company">{t("account.phone")}</label>
+                          <input
+                            id="phone"
+                            name="phone"
                             onChange={this.handleChange}
-                            name="type"
-                            id="type"
-                            class="form-control"
-                            placeholder={this.state.type}
-                          >
-                            <option value="">--Select--</option>
-                            <option value="Client">Client</option>
-                          </select>
+                            className="form-control"
+                            type="text"
+                            value={this.state.phone}
+                            required
+                            maxLength="18"
+                          />
                         </div>
                       </div>
                     </div>
-
-                    <div className="col-xl-3 col-lg-12">
+                    <p style={{ color: "#eb516d " }}>
+                      {this.state.errors ? this.state.errors : null}
+                    </p>
+                    <div>
                       <div className="form-group">
                         <label className="d-none d-xl-block">&nbsp;</label>
                         <div className="clear"></div>
-                        <button className="btn btn-success">Create</button>
+                        {loading ? (
+                          loading
+                        ) : (
+                          <button className="btn btn-success">
+                            {this.props.match.params.id ? "Update" : "Create"}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

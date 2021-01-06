@@ -13,6 +13,21 @@ class Reset extends Component {
     status: null,
   };
 
+  componentDidMount = () => {
+    this.getEmail(this.props.match.params.token);
+  };
+
+  getEmail = (token) => {
+    axios
+      .post(`${url}/api/hash/${token}`)
+      .then((result) => {
+        this.setState({ email: result.data });
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  };
+
   handleChange = (event) => {
     const { name, value } = event.target;
     this.setState({ [name]: value });
@@ -34,6 +49,7 @@ class Reset extends Component {
     axios
       .post(`${url}/api/password/reset`, data)
       .then((res) => {
+        alert("Success");
         this.props.history.push("/");
       })
       .catch((err) => {
@@ -68,14 +84,25 @@ class Reset extends Component {
                 <h3>Reset password</h3>
               </div>
               <form onSubmit={this.handleSubmit}>
+                <div class="form-group">
+                  <label
+                    style={{
+                      marginLeft: "30%",
+                      fontWeight: "600",
+                    }}
+                  >
+                    For: {this.state.email}
+                  </label>
+                </div>
                 <div className="form-group">
                   <input
                     className="form-control"
                     onChange={this.handleChange}
                     name="email"
-                    type="email"
+                    type="hidden"
                     placeholder="Email id"
                     required
+                    value={this.state.email}
                   />
                 </div>
                 <div className="form-group">

@@ -7,12 +7,57 @@ import File from "../../../images/file-icon.png";
 import Datetime from "react-datetime";
 import moment from "moment";
 import Select from "react-select";
+import Autosuggest from "react-autosuggest";
 import Alert from "react-bootstrap/Alert";
+import Spinner from "react-bootstrap/Spinner";
 import BusinessInfo from "../modals/BusinessInfo";
 import PDFViewInvoice from "../modals/PDFViewInvoice";
 import { withTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
+import $ from "jquery";
 
 const options = [];
+let clients = [];
+
+// Teach Autosuggest how to calculate suggestions for any given input value.
+const getSuggestions = (value) => {
+  const inputValue = value.trim().toLowerCase();
+  const inputLength = inputValue.length;
+
+  return inputLength === 0
+    ? []
+    : clients.filter(
+        (lang) => lang.value.toLowerCase().slice(0, inputLength) === inputValue
+      );
+};
+
+// When suggestion is clicked, Autosuggest needs to populate the input
+// based on the clicked suggestion. Teach Autosuggest how to calculate the
+// input value for every given suggestion.
+const getSuggestionValue = (suggestion) => suggestion.value;
+
+// Use your imagination to render suggestions.
+const renderSuggestion = (suggestion) => <div>{suggestion.value}</div>;
+
+// Teach Autosuggest how to calculate suggestions for any given input value.
+const getSuggestions2 = (value) => {
+  const inputValue = value.trim().toLowerCase();
+  const inputLength = inputValue.length;
+
+  return inputLength === 0
+    ? []
+    : options.filter(
+        (lang) => lang.value.toLowerCase().slice(0, inputLength) === inputValue
+      );
+};
+
+// When suggestion is clicked, Autosuggest needs to populate the input
+// based on the clicked suggestion. Teach Autosuggest how to calculate the
+// input value for every given suggestion.
+const getSuggestionValue2 = (suggestion) => suggestion.value;
+
+// Use your imagination to render suggestions.
+const renderSuggestion2 = (suggestion) => <div>{suggestion.value}</div>;
 
 class Invoice extends Component {
   state = {
@@ -20,18 +65,29 @@ class Invoice extends Component {
     email: "",
     emails: [],
     date: "",
+    date_err: false,
     due_date: "",
+    due_date_err: false,
     inv_no: "",
+    inv_no_err: false,
     refer: "",
+    refer_err: false,
     acc_no: "",
+    acc_err: false,
     pay_term: "",
+    pay_term_err: false,
     delay_interest: "",
+    delay_interest_err: false,
     note: "",
     terms: "",
     service: "1",
     currency: "1",
     attachment: null,
     name: null,
+    name_err: false,
+    name_unq: null,
+    type: "resource",
+    agree_id: null,
 
     itemsInput: null,
     taxInput: null,
@@ -42,24 +98,57 @@ class Invoice extends Component {
     tender_id: 0,
     row_phase: [],
     selectedOption: null,
+    value: "",
+    suggestions: [],
+    suggestions2: [],
     error: null,
+    client_id_err: false,
 
     errors: [],
     show_errors: false,
     show_msg: false,
 
     agreements: [],
+    projects: [],
     agreement: 0,
+    project: 0,
+
+    productcat: [],
+    clientsList: [],
+
+    loading: false,
 
     left: null,
     right: null,
   };
 
   componentDidMount = () => {
+    $('.attachment input[type="file"]').change(function (e) {
+      $(this)
+        .next()
+        .find(".filename")
+        .html(e.target.files[0].name)
+        .addClass("active");
+      $(this).next().find(".clear").show();
+    });
+    $(".attachment label span.clear").click(function (e) {
+      e.preventDefault();
+      var content = $(this).prev(".filename").attr("data-text");
+      $(this).prev(".filename").html(content).removeClass("active");
+      $(this).parents(".file-select").find("input[type=file]").val("");
+      $(this).hide();
+    });
+
     this.loadResources();
-    this.loadAgreements();
+    this.loadCategory();
     this.loadConfig();
     this.myRef = React.createRef();
+  };
+
+  deleteRow = (index) => {
+    var row_phase = [...this.state.row_phase];
+    row_phase.splice(index, 1);
+    this.setState({ row_phase });
   };
 
   loadConfig = async () => {
@@ -79,47 +168,155 @@ class Invoice extends Component {
       });
   };
 
-  loadAgreements = async () => {
+  loadCategory = async () => {
     const token = await localStorage.getItem("token");
     axios
-      .get(`${url}/api/invoice/getPaymentTerms`, {
+      .get(`${url}/api/category`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       })
       .then((result) => {
-        this.setState({ agreements: result.data.data });
+        this.setState({ productcat: result.data.data });
       })
       .catch((err) => {
         console.log(err.response);
       });
   };
 
-  changeAgreement = (event) => {
-    // this.setState({ agreements: [] })
-    const token = localStorage.getItem("token");
-    if (isNaN(event.target.value)) {
-      return alert("Please select a term");
+  loadProjects = async (type, id) => {
+    if (id.includes("com")) {
+      const token = await localStorage.getItem("token");
+      axios
+        .get(`${url}/api/invoice/getProjects/${type}/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        .then((result) => {
+          console.log(result);
+          this.setState({ projects: result.data.data });
+        })
+        .catch((err) => {
+          console.log(err.response);
+        });
     }
-    axios
-      .get(`${url}/api/invoiceAgreements/${event.target.value}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-      .then((result) => {
-        this.setState({ row_phase: JSON.parse(result.data.data.items) });
-      })
-      .catch((err) => {
-        console.log(err.response);
+  };
+
+  changeCat = (e) => {
+    if (e.target.value !== "--Select--") {
+      let row_phase = this.state.row_phase;
+      let obj = {
+        des: e.target.value,
+        amount: 0,
+        qty: 0,
+        cost: 0,
+      };
+      row_phase.push(obj);
+      this.setState({
+        row_phase: row_phase,
       });
+    }
+  };
+
+  changeAgreement = (event) => {
+    console.log(event.target.value);
+    if (event.target.value !== "--Select--") {
+      const token = localStorage.getItem("token");
+      if (event.target.value.split(",")[1] === " hourly") {
+        axios
+          .get(
+            `${url}/api/invoice/getTasksById/${
+              event.target.value.split(",")[0]
+            }`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          )
+          .then((result) => {
+            this.setState({ row_phase: [] });
+            this.setState({
+              row_phase: JSON.parse(result.data.data[0].items),
+              agree_id: result.data.data[0].id,
+              agreement: result.data.data[0].project_id,
+            });
+          })
+          .catch((err) => {
+            console.log(err.response);
+          });
+      } else {
+        axios
+          .get(
+            `${url}/api/invoiceAgreements/${event.target.value.split(",")[0]}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          )
+          .then((result) => {
+            this.setState({ row_phase: [] });
+            this.setState({
+              row_phase: JSON.parse(result.data.data.items),
+              agree_id: result.data.data.id,
+              agreement: result.data.data.agreement_id,
+            });
+          })
+          .catch((err) => {
+            console.log(err.response);
+          });
+      }
+    }
+  };
+
+  selectTerm = (event) => {
+    if (event.target.value !== "--Select--") {
+      const token = localStorage.getItem("token");
+      if (event.target.value.split(",")[1] !== "null") {
+        axios
+          .get(
+            `${url}/api/invoice/getPaymentTerms/${
+              event.target.value.split(",")[0]
+            }/${event.target.value.split(",")[1]}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          )
+          .then((result) => {
+            this.setState({ agreements: result.data.data });
+          })
+          .catch((err) => {
+            console.log(err.response);
+          });
+      } else {
+        axios
+          .get(
+            `${url}/api/invoice/getTasks/${event.target.value.split(",")[0]}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          )
+          .then((result) => {
+            this.setState({ agreements: result.data.data });
+          })
+          .catch((err) => {
+            console.log(err.response);
+          });
+      }
+    }
   };
 
   handleAppend = (event) => {
     event.preventDefault();
     let row_phase = this.state.row_phase;
     let keys = ["items", "qty", "cost", "amount"];
-    let gg = `${0},${0},${0},${0}`.split(",");
+    let gg = `${""},${0},${0},${0}`.split(",");
     let result = {};
     keys.forEach((key, i) => (result[key] = gg[i]));
     row_phase.push(result);
@@ -132,8 +329,16 @@ class Invoice extends Component {
     }
     if (
       event.target.files[0].name.split(".").pop() == "pdf" ||
+      event.target.files[0].name.split(".").pop() == "PDF" ||
       event.target.files[0].name.split(".").pop() == "docx" ||
-      event.target.files[0].name.split(".").pop() == "doc"
+      event.target.files[0].name.split(".").pop() == "doc" ||
+      event.target.files[0].name.split(".").pop() == "jpeg" ||
+      event.target.files[0].name.split(".").pop() == "png" ||
+      event.target.files[0].name.split(".").pop() == "PNG" ||
+      event.target.files[0].name.split(".").pop() == "jpg" ||
+      event.target.files[0].name.split(".").pop() == "JPG" ||
+      event.target.files[0].name.split(".").pop() == "gif" ||
+      event.target.files[0].name.split(".").pop() == "svg"
     ) {
       this.setState({ attachment: event.target.files[0] });
     } else {
@@ -148,6 +353,44 @@ class Invoice extends Component {
   handleAuto = (selectedOption) => {
     this.setState({ selectedOption });
   };
+  onChange = (event, { newValue }) => {
+    this.loadProjects(this.state.type, newValue);
+    this.setState({
+      value: newValue,
+    });
+  };
+  onChange2 = (event, { newValue }) => {
+    this.setState({
+      email: newValue,
+    });
+  };
+  // Autosuggest will call this function every time you need to update suggestions.
+  // You already implemented this logic above, so just use it.
+  onSuggestionsFetchRequested = ({ value }) => {
+    this.setState({
+      suggestions: getSuggestions(value),
+    });
+  };
+
+  // Autosuggest will call this function every time you need to clear suggestions.
+  onSuggestionsClearRequested = () => {
+    this.setState({
+      suggestions: [],
+    });
+  };
+
+  onSuggestionsFetchRequested2 = ({ value }) => {
+    this.setState({
+      suggestions2: getSuggestions2(value),
+    });
+  };
+
+  // // Autosuggest will call this function every time you need to clear suggestions.
+  onSuggestionsClearRequested2 = () => {
+    this.setState({
+      suggestions2: [],
+    });
+  };
   handleBusinessInfo = (val) => {
     this.setState({ business_info: val });
   };
@@ -160,6 +403,19 @@ class Invoice extends Component {
   handleChange = (event) => {
     const { name, value } = event.target;
     this.setState({ [name]: value });
+  };
+
+  changeType = (event) => {
+    if (event.target.value === "client") {
+      this.setState({ clientsList: [] });
+      this.loadClient();
+      this.setState({ type: "resource" });
+    }
+    if (event.target.value === "user") {
+      this.setState({ clientsList: [] });
+      this.loadUser();
+      this.setState({ type: "user" });
+    }
   };
 
   loadResources = async () => {
@@ -176,6 +432,58 @@ class Invoice extends Component {
           var _key = {};
           keys.forEach((key, i) => (_key[key] = res.email));
           options.push(_key);
+        });
+      })
+      .catch((err) => {
+        console.log(err.response);
+      });
+  };
+
+  loadClient = async () => {
+    const token = await localStorage.getItem("token");
+    axios
+      .get(`${url}/api/resources-list/Client`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      .then((result) => {
+        clients.length = 0;
+        result.data.data.map((res) => {
+          var keys = ["value", "label"];
+          var _key = {};
+          keys.forEach((key, i) => (_key[key] = res.email));
+          _key["name"] = res.full_name;
+          _key["id"] = res.id;
+          clients.push(_key);
+          this.setState({ clientsList: clients });
+        });
+      })
+      .catch((err) => {
+        console.log(err.response);
+      });
+  };
+
+  loadUser = async () => {
+    const token = await localStorage.getItem("token");
+    axios
+      .get(`${url}/api/invoice/agreementUsers`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      .then((result) => {
+        clients.length = 0;
+        result.data.data.map((res) => {
+          if (res.email) {
+            var keys = ["value", "label"];
+            var _key = {};
+            keys.forEach((key, i) => (_key[key] = res.email));
+            _key["name"] = res.full_name;
+            _key["id"] = res.agreement_client_id;
+            clients.push(_key);
+            this.setState({ clientsList: clients });
+          }
         });
       })
       .catch((err) => {
@@ -234,6 +542,9 @@ class Invoice extends Component {
     const { name, value } = event.target;
     this.setState({ [name]: value, error: null });
   };
+  handleRes = ({ value }) => {
+    this.setState({ email: value, error: null });
+  };
   handleKeyDown = (evt) => {
     if (["Enter", "Tab", ","].includes(evt.key)) {
       evt.preventDefault();
@@ -251,6 +562,20 @@ class Invoice extends Component {
 
   handleDraft = async (event) => {
     event.preventDefault();
+
+    this.setState({
+      date_err: false,
+      inv_no_err: false,
+      refer_err: false,
+      acc_err: false,
+      pay_term_err: false,
+      due_date_err: false,
+      delay_interest_err: false,
+      name_err: false,
+      name_unq: null,
+      client_id_err: false,
+    });
+
     let client_id;
     if (
       this.state.tender_id !== 0 ||
@@ -258,10 +583,16 @@ class Invoice extends Component {
     ) {
       client_id = this.props.match.params.customer;
     } else {
-      if (this.state.selectedOption === null) {
-        return alert("please select a resource");
+      if (this.state.value === null || this.state.value === "") {
+        client_id = 0;
+      } else {
+        client_id = this.state.value;
       }
-      client_id = this.state.selectedOption.value;
+    }
+
+    if (this.state.name == null) {
+      this.myRef.current.scrollTo(0, 0);
+      return this.setState({ name_err: true });
     }
 
     const token = await localStorage.getItem("token");
@@ -270,6 +601,9 @@ class Invoice extends Component {
     data.set("tender_id", this.state.tender_id);
     data.set("client_id", client_id);
     data.set("date", this.state.date);
+    data.set("type", this.state.type);
+    data.set("agree_id", this.state.agree_id);
+    data.set("agreement", this.state.agreement);
     data.set("due_date", this.state.due_date);
     data.set("invoice_number", this.state.inv_no);
     data.set("reference", this.state.refer);
@@ -290,42 +624,94 @@ class Invoice extends Component {
     data.set("invoice_names", this.state.name);
     data.append("attachment", this.state.attachment);
     axios
-      .post(`${url}/api/invoice/create`, data, {
+      .post(`${url}/api/invoice/draft`, data, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       })
       .then((res) => {
-        this.setState({ show_msg: true });
+        this.setState({ show_msg: true, loading: false });
         this.myRef.current.scrollTo(0, 0);
       })
       .catch((err) => {
-        Object.entries(err.response.data.error).map(([key, value]) => {
-          this.setState({ errors: err.response.data.error });
-        });
-        this.setState({ show_errors: true });
+        this.myRef.current.scrollTo(0, 0);
+        if (err.response.status === 406) {
+          if (err.response.data.error.invoice_names) {
+            this.setState({
+              name_unq: err.response.data.error.invoice_names[0],
+            });
+          }
+        }
+        if (err.response.status === 403) {
+          this.setState({
+            client_id_err: true,
+          });
+        }
+        this.setState({ loading: false });
         this.myRef.current.scrollTo(0, 0);
       });
 
     // Display the key/value pairs
-    // for (var pair of data.entries()) {
-    //   console.log(pair[0] + ", " + pair[1]);
-    // }
+    for (var pair of data.entries()) {
+      console.log(pair[0] + ", " + pair[1]);
+    }
   };
 
   handleSubmit = async (event) => {
     event.preventDefault();
+
+    this.setState({
+      date_err: false,
+      inv_no_err: false,
+      refer_err: false,
+      acc_err: false,
+      pay_term_err: false,
+      due_date_err: false,
+      delay_interest_err: false,
+      name_err: false,
+      name_unq: null,
+      client_id_err: false,
+    });
+
     let client_id;
     if (
       this.state.tender_id !== 0 ||
       this.props.match.params.draft !== undefined
     ) {
-      client_id = this.props.match.params.customer;
+      client_id =
+        this.props.match.params.customer == 0
+          ? this.state.value
+          : this.props.match.params.customer;
     } else {
-      if (this.state.selectedOption === null) {
+      if (this.state.value === null || this.state.value === "") {
         return alert("please select a resource");
       }
-      client_id = this.state.selectedOption.value;
+      client_id = this.state.value;
+    }
+
+    if (this.state.date == "") {
+      return this.setState({ date_err: true });
+    }
+    if (this.state.inv_no == "") {
+      return this.setState({ inv_no_err: true });
+    }
+    if (this.state.refer == "") {
+      return this.setState({ refer_err: true });
+    }
+    if (this.state.acc_no == "") {
+      return this.setState({ acc_err: true });
+    }
+    if (this.state.pay_term == "") {
+      return this.setState({ pay_term_err: true });
+    }
+    if (this.state.due_date == "") {
+      return this.setState({ due_date_err: true });
+    }
+    if (this.state.delay_interest == "") {
+      return this.setState({ delay_interest_err: true });
+    }
+    if (this.state.name == null) {
+      return this.setState({ name_err: true });
     }
 
     const token = await localStorage.getItem("token");
@@ -333,6 +719,9 @@ class Invoice extends Component {
     const data = new FormData();
     data.set("tender_id", this.state.tender_id);
     data.set("client_id", client_id);
+    data.set("type", this.state.type);
+    data.set("agree_id", this.state.agree_id);
+    data.set("agreement", this.state.agreement);
     data.set("date", this.state.date);
     data.set("due_date", this.state.due_date);
     data.set("invoice_number", this.state.inv_no);
@@ -370,24 +759,69 @@ class Invoice extends Component {
         },
       })
       .then((res) => {
-        this.setState({ show_msg: true });
+        this.setState({
+          show_msg: true,
+          date: "",
+          due_date: "",
+          inv_no: "",
+          refer: "",
+          acc_no: "",
+          pay_term: "",
+          delay_interest: "",
+          emails: [],
+          email: "",
+          agreement: 0,
+          agree_id: null,
+          service: "",
+          note: "",
+          terms: "",
+          attachment: "",
+          name: "",
+          itemsInput: null,
+          taxInput: null,
+          subInput: null,
+          taxCalcInput: null,
+          totalInput: null,
+          row_phase: [],
+          selectedOption: null,
+          agreements: [],
+          projects: [],
+          productcat: [],
+          clientsList: [],
+          loading: false,
+        });
         this.myRef.current.scrollTo(0, 0);
       })
       .catch((err) => {
-        Object.entries(err.response.data.error).map(([key, value]) => {
-          this.setState({ errors: err.response.data.error });
-        });
-        this.setState({ show_errors: true });
+        this.myRef.current.scrollTo(0, 0);
+        if (err.response.status === 406) {
+          if (err.response.data.error.invoice_names) {
+            this.setState({
+              name_unq: err.response.data.error.invoice_names[0],
+            });
+          }
+        }
+        if (err.response.status === 403) {
+          this.setState({
+            client_id_err: true,
+          });
+        }
+        this.setState({ loading: false });
         this.myRef.current.scrollTo(0, 0);
       });
+
+    for (var pair of data.entries()) {
+      console.log(pair[0] + ", " + pair[1]);
+    }
   };
 
   hiddenFields = () => {
     this.setState({
       client_id:
-        this.state.tender_id !== 0
-          ? this.props.match.params.customer
-          : this.state.selectedOption.value,
+        this.state.tender_id !== 0 ||
+        this.props.match.params.draft !== undefined
+          ? this.state.userEmail
+          : this.state.value,
       itemsInput: this.itemsInput.value,
       taxInput: this.taxInput.value,
       subInput: this.subInput.value,
@@ -398,6 +832,13 @@ class Invoice extends Component {
 
   render() {
     const { t, i18n } = this.props;
+
+    var yesterday = moment().subtract(1, "day");
+    function valid(current) {
+      return current.isAfter(yesterday);
+    }
+
+    let loading;
 
     const userInfo = {
       client_id: this.state.client_id,
@@ -423,6 +864,14 @@ class Invoice extends Component {
       right: this.state.right,
     };
 
+    if (this.state.loading === true) {
+      loading = (
+        <Spinner animation="border" role="status">
+          <span className="sr-only">Loading...</span>
+        </Spinner>
+      );
+    }
+
     let alert;
     if (this.state.show_errors === true) {
       alert = (
@@ -444,7 +893,31 @@ class Invoice extends Component {
       );
     }
 
-    const { selectedOption } = this.state;
+    const {
+      selectedOption,
+      value,
+      email,
+      suggestions,
+      suggestions2,
+    } = this.state;
+
+    // Autosuggest will pass through all these props to the input.
+    const inputProps = {
+      placeholder: "Email id or name of client",
+      value,
+      className: "form-control",
+      onChange: this.onChange,
+    };
+
+    // Autosuggest will pass through all these props to the input.
+    const inputProps2 = {
+      placeholder: "Email id ",
+      value: this.state.email,
+      className: "form-control",
+      onChange: this.onChange2,
+      onKeyDown: this.handleKeyDown,
+      onPaste: this.handlePaste,
+    };
 
     return (
       <div>
@@ -452,8 +925,20 @@ class Invoice extends Component {
         <div className="sidebar-toggle"></div>
         <nav aria-label="breadcrumb">
           <ol className="breadcrumb">
-            <li className="breadcrumb-item ">{t("mycustomer.heading")}</li>
-            <li className="breadcrumb-item ">{t("invoice.invoice")}</li>
+            <Link
+              to="/business-dashboard"
+              className="breadcrumb-item active"
+              aria-current="page"
+            >
+              {t("mycustomer.heading")}
+            </Link>
+            <Link
+              to="/invoice-list"
+              className="breadcrumb-item active"
+              aria-current="page"
+            >
+              {t("invoice.invoice")}
+            </Link>
             <li className="breadcrumb-item active" aria-current="page">
               {t("c_material_list.listing.create")}
             </li>
@@ -465,8 +950,61 @@ class Invoice extends Component {
             {alert ? alert : null}
             <div className="container-fluid">
               <h3 className="head3">{t("invoice.create_invoice")}</h3>
+              <div className="row mt-4" style={{ maxWidth: "1120px" }}>
+                <div className="col text-right">
+                  <button
+                    onClick={this.hiddenFields}
+                    className="btn btn-primary ml-3 mb-3 clk3"
+                    data-toggle="modal"
+                    data-target="#preview-info"
+                  >
+                    Preview
+                  </button>
+                  {loading ? (
+                    loading
+                  ) : (
+                    <button
+                      onClick={this.handleSubmit}
+                      className="btn btn-gray ml-3 mb-3 clk3"
+                    >
+                      Send
+                    </button>
+                  )}
+                  {/* {loading ? (
+                    loading
+                  ) : ( */}
+                  <button
+                    onClick={this.handleDraft}
+                    className="btn btn-gray ml-3 mb-3 clk3"
+                  >
+                    Save as Draft
+                  </button>
+                  {/* // )} */}
+                </div>
+              </div>
               <div className="card" style={{ maxWidth: "1120px" }}>
                 <div className="card-body">
+                  <div className="row">
+                    <div className="col-sm-12">
+                      <div className="form-group">
+                        <label for="name">{t("myproposal.name")}</label>
+                        <input
+                          id="name"
+                          className="form-control"
+                          type="text"
+                          name="name"
+                          value={this.state.name}
+                          onChange={this.handleChange2}
+                        />
+                        <p style={{ color: "#eb516d " }}>
+                          {this.state.name_err === true
+                            ? "Name is required"
+                            : null}
+                          {this.state.name_unq ? this.state.name_unq : null}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
                   <div className="row gutters-70 mt-3">
                     <div className="col-sm-12 col-md">
                       <h4 className="head4">
@@ -567,6 +1105,7 @@ class Invoice extends Component {
                             <div className="input-group">
                               <Datetime
                                 onChange={(date) => this.handleDate(date)}
+                                isValidDate={valid}
                                 id="invoice-date"
                                 name="invoice_date"
                                 dateFormat="DD-MM-YYYY"
@@ -579,6 +1118,11 @@ class Invoice extends Component {
                                 </div>
                               </div>
                             </div>
+                            <p style={{ color: "#eb516d " }}>
+                              {this.state.date_err === true
+                                ? "Date is required"
+                                : null}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -592,7 +1136,7 @@ class Invoice extends Component {
                           <div className="col-sm-6 col-lg-7">
                             <div className="input-group">
                               <input
-                                type="text"
+                                type="number"
                                 onChange={this.handleChange}
                                 className="form-control"
                                 id="invoice-number"
@@ -600,6 +1144,11 @@ class Invoice extends Component {
                                 value={this.state.inv_no}
                               />
                             </div>
+                            <p style={{ color: "#eb516d " }}>
+                              {this.state.inv_no_err === true
+                                ? "Invoice-number is required"
+                                : null}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -621,6 +1170,11 @@ class Invoice extends Component {
                                 value={this.state.refer}
                               />
                             </div>
+                            <p style={{ color: "#eb516d " }}>
+                              {this.state.refer_err === true
+                                ? "Reference is required"
+                                : null}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -634,7 +1188,7 @@ class Invoice extends Component {
                           <div className="col-sm-6 col-lg-7">
                             <div className="input-group">
                               <input
-                                type="text"
+                                type="number"
                                 onChange={this.handleChange}
                                 id="account-number"
                                 name="acc_no"
@@ -642,6 +1196,11 @@ class Invoice extends Component {
                                 value={this.state.acc_no}
                               />
                             </div>
+                            <p style={{ color: "#eb516d " }}>
+                              {this.state.acc_err === true
+                                ? "Account-number is required"
+                                : null}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -663,6 +1222,11 @@ class Invoice extends Component {
                                 value={this.state.pay_term}
                               />
                             </div>
+                            <p style={{ color: "#eb516d " }}>
+                              {this.state.pay_term_err === true
+                                ? "Payment-term is required"
+                                : null}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -677,6 +1241,7 @@ class Invoice extends Component {
                             <div className="input-group">
                               <Datetime
                                 onChange={(date) => this.handleDate1(date)}
+                                isValidDate={valid}
                                 id="due-date"
                                 name="due_date"
                                 dateFormat="DD-MM-YYYY"
@@ -689,6 +1254,11 @@ class Invoice extends Component {
                                 </div>
                               </div>
                             </div>
+                            <p style={{ color: "#eb516d " }}>
+                              {this.state.due_date_err === true
+                                ? "Due-date is required"
+                                : null}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -702,7 +1272,7 @@ class Invoice extends Component {
                           <div className="col-sm-6 col-lg-7">
                             <div className="input-group">
                               <input
-                                type="text"
+                                type="number"
                                 id="delay-interest"
                                 onChange={this.handleChange}
                                 className="form-control"
@@ -710,6 +1280,11 @@ class Invoice extends Component {
                                 value={this.state.delay_interest}
                               />
                             </div>
+                            <p style={{ color: "#eb516d " }}>
+                              {this.state.delay_interest_err === true
+                                ? "Delay-interest is required"
+                                : null}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -722,36 +1297,50 @@ class Invoice extends Component {
                         <div className="col-md-2">
                           <label>{t("invoice.bill_to")}</label>
                         </div>
-                        <div className="col-md-6">
-                          {/* <input
-                            type="text"
-                            className="form-control"
-                            placeholder="Gaurav.kocher1986@gmail.com"
-                          /> */}
-                          <Select
+                        <div className="col-md-4">
+                          {/* <Select
                             value={selectedOption}
                             onChange={this.handleAuto}
-                            options={options}
+                            options={clients}
+                          /> */}
+                          <select
+                            onChange={this.changeType}
+                            class="form-control"
+                          >
+                            <option>--Select--</option>
+                            <option value="user">user</option>
+                            <option value="client">client</option>
+                          </select>
+                        </div>
+                        <div className="col-md-6">
+                          <Autosuggest
+                            suggestions={suggestions}
+                            onSuggestionsFetchRequested={
+                              this.onSuggestionsFetchRequested
+                            }
+                            onSuggestionsClearRequested={
+                              this.onSuggestionsClearRequested
+                            }
+                            getSuggestionValue={getSuggestionValue}
+                            renderSuggestion={renderSuggestion}
+                            inputProps={inputProps}
+                            value={this.state.value}
                           />
                         </div>
-                        <div className="col-md-4">
-                          <label>
-                            <a href="#">Add from address book</a>
-                          </label>
-                        </div>
                       </div>
+                      <p style={{ color: "#eb516d " }}>
+                        {this.state.client_id_err === true
+                          ? "Resource not found"
+                          : null}
+                      </p>
                     </div>
                     <div className="row">
                       <div className="col-md-6 offset-md-2">
                         <address>
                           <p>
-                            Gaurav Kocher
+                            {selectedOption ? selectedOption.name : null}
                             <br />
-                            13taximaxi
-                            <br />
-                            Gaurav.kocher1986@gmail.com
-                            <br />
-                            +61 433 489 665
+                            {selectedOption ? selectedOption.value : null}
                           </p>
                         </address>
                       </div>
@@ -774,7 +1363,19 @@ class Invoice extends Component {
                               </button>
                             </div>
                           ))}
-                          <input
+                          <Autosuggest
+                            suggestions={suggestions2}
+                            onSuggestionsFetchRequested={
+                              this.onSuggestionsFetchRequested2
+                            }
+                            onSuggestionsClearRequested={
+                              this.onSuggestionsClearRequested2
+                            }
+                            getSuggestionValue={getSuggestionValue2}
+                            renderSuggestion={renderSuggestion2}
+                            inputProps={inputProps2}
+                          />
+                          {/* <input
                             id="mails"
                             type="text"
                             name="email"
@@ -784,7 +1385,7 @@ class Invoice extends Component {
                             onKeyDown={this.handleKeyDown}
                             onChange={this.handleChange2}
                             onPaste={this.handlePaste}
-                          />
+                          /> */}
                           {this.state.error && (
                             <p className="error">{this.state.error}</p>
                           )}
@@ -799,61 +1400,84 @@ class Invoice extends Component {
                         <div className="form-group">
                           <div className="row align-items-center gutters-14">
                             <div className="col flexgrow0">
-                              <label className="mb-0" for="service">
-                                <b>{t("invoice.service")}</b>
-                              </label>
-                            </div>
-                            <div className="col">
-                              <select id="service" className="form-control">
-                                <option>Work/Material</option>
-                                <option>abc</option>
-                                <option>xyz</option>
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="col-lg-3 col-md-6">
-                        <div className="form-group">
-                          <div className="row align-items-center gutters-14">
-                            <div className="col flexgrow0">
-                              <label className="mb-0" for="currency">
-                                <b>{t("invoice.currency")}</b>
-                              </label>
-                            </div>
-                            <div className="col">
-                              <select id="currency" className="form-control">
-                                <option>EURO</option>
-                                <option>abc</option>
-                                <option>xyz</option>
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="col-lg-3 col-md-6">
-                        <div className="form-group">
-                          <div className="row align-items-center gutters-14">
-                            <div className="col flexgrow0">
-                              <label className="mb-0" for="agreement">
-                                <b>{t("b_sidebar.agreement.agreement")}</b>
+                              <label className="mb-0" for="work_mat">
+                                <b>{t("invoice.work_mat")}</b>
                               </label>
                             </div>
                             <div className="col">
                               <select
-                                onChange={this.changeAgreement}
-                                name="agreement"
-                                id="agreement"
+                                onChange={this.changeCat}
+                                id="work_mat"
                                 className="form-control"
                               >
                                 <option>--Select--</option>
-                                {this.state.agreements.map(
-                                  ({ id, agreement_id, type }, index) => (
-                                    <option value={id}>
-                                      {agreement_id}, {type}
-                                    </option>
-                                  )
-                                )}
+                                {typeof this.state.productcat !== "undefined"
+                                  ? this.state.productcat.map(
+                                      (
+                                        { category_id, category_name },
+                                        index
+                                      ) => (
+                                        <option value={category_name}>
+                                          {category_name}
+                                        </option>
+                                      )
+                                    )
+                                  : []}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="col-lg-4 col-md-6">
+                        <div className="form-group">
+                          <div className="row align-items-center gutters-14">
+                            <div className="col flexgrow0 mr-4">
+                              <label className="mb-0" for="project">
+                                <b>{t("b_sidebar.project.project")}</b>
+                              </label>
+                            </div>
+                            <div className="col">
+                              <select
+                                onChange={this.selectTerm}
+                                name="project"
+                                id="project"
+                                className="form-control"
+                              >
+                                <option>--Select--</option>
+                                {typeof this.state.projects !== "undefined"
+                                  ? this.state.projects.map(
+                                      ({ id, aggrement_id, name }, index) => (
+                                        <option value={`${id},${aggrement_id}`}>
+                                          {aggrement_id ? `${name}` : `${name}`}
+                                        </option>
+                                      )
+                                    )
+                                  : []}
+                              </select>
+                            </div>
+                            <div className="col">
+                              <select
+                                onChange={this.changeAgreement}
+                                name="project"
+                                id="project"
+                                className="form-control"
+                              >
+                                <option>--Select--</option>
+                                {typeof this.state.agreements !== "string"
+                                  ? this.state.agreements.map(
+                                      (
+                                        { id, agreement_id, type, task_name },
+                                        index
+                                      ) => (
+                                        <option value={`${id}, ${type}`}>
+                                          {agreement_id
+                                            ? `${task_name}`
+                                            : `${task_name}`}
+                                        </option>
+                                      )
+                                    )
+                                  : []}
                               </select>
                             </div>
                           </div>
@@ -865,17 +1489,28 @@ class Invoice extends Component {
                     <table className="table table-bordered table-sm">
                       <thead>
                         <tr className="text-right">
+                          <th className="text-left"></th>
                           <th className="text-left">{t("invoice.item")}</th>
                           <th>{t("invoice.quantity")}</th>
                           <th>{t("invoice.unit")}</th>
                           <th>{t("invoice.price")}</th>
-                          <th colspan="2">{t("invoice.amount")}</th>
+                          <th colspan="2">
+                            {this.state.left} {t("invoice.amount")}{" "}
+                            {this.state.right}
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {this.state.row_phase.map((r, index) => (
-                          <Row val={r} key={index} />
-                        ))}
+                        {this.state.row_phase.map((r, index) => {
+                          return (
+                            <Row
+                              val={r}
+                              key={index}
+                              idx={index}
+                              deleteRow={this.deleteRow}
+                            />
+                          );
+                        })}
 
                         <tr className="text-right">
                           <td colspan="6">
@@ -920,8 +1555,11 @@ class Invoice extends Component {
                               <tbody>
                                 <tr className="text-right">
                                   <td></td>
-                                  <td>{t("invoice.subtotal")}</td>
-                                  <td id="4result">
+                                  <td>
+                                    {this.state.left} {t("invoice.subtotal")}{" "}
+                                    {this.state.right}
+                                  </td>
+                                  <td id="5result">
                                     {this.state.row_phase.length <= 0
                                       ? 0
                                       : this.state.row_phase[0].amount}
@@ -936,18 +1574,25 @@ class Invoice extends Component {
                                   >
                                     0
                                   </td>
-                                  <td className="tax_res">
-                                    {this.state.left} 0.00 {this.state.right}
+                                  <td>
+                                    {this.state.left}
+                                    <span className="tax_res">0.00</span>
+                                    {this.state.right}
                                   </td>
                                 </tr>
                                 <tr className="text-right">
                                   <td></td>
                                   <td>
-                                    <b>{t("invoice.total")}</b>
+                                    <b>
+                                      {this.state.left} {t("invoice.total")}{" "}
+                                      {this.state.right}
+                                    </b>
                                   </td>
                                   <td>
-                                    <b className="total">
-                                      {this.state.left} 0.00 {this.state.right}
+                                    <b>
+                                      {this.state.left}
+                                      <span className="total">0.00</span>
+                                      {this.state.right}
                                     </b>
                                   </td>
                                 </tr>
@@ -1019,23 +1664,6 @@ class Invoice extends Component {
                     </div>
                   </div>
 
-                  <div className="row">
-                    <div className="col-sm-5">
-                      <div className="form-group">
-                        <label for="name">{t("myproposal.name")}</label>
-                        <input
-                          id="name"
-                          className="form-control"
-                          type="text"
-                          name="name"
-                          value={this.state.name}
-                          onChange={this.handleChange2}
-                          placeholder="Enter name"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
                   <div className="row mt-4">
                     <div className="col text-right">
                       <button
@@ -1046,18 +1674,28 @@ class Invoice extends Component {
                       >
                         Preview
                       </button>
-                      <button
-                        onClick={this.handleSubmit}
-                        className="btn btn-gray ml-3 mb-3 clk3"
-                      >
-                        Send
-                      </button>
+
+                      {loading ? (
+                        loading
+                      ) : (
+                        <button
+                          onClick={this.handleSubmit}
+                          className="btn btn-gray ml-3 mb-3 clk3"
+                        >
+                          Send
+                        </button>
+                      )}
+
+                      {/* {loading ? (
+                        loading
+                      ) : ( */}
                       <button
                         onClick={this.handleDraft}
                         className="btn btn-gray ml-3 mb-3 clk3"
                       >
                         Save as Draft
                       </button>
+                      {/* )} */}
                     </div>
                   </div>
                   <br />
@@ -1081,34 +1719,45 @@ class Invoice extends Component {
   }
 }
 
-const Row = (props) => (
-  <tr className="text-right i-val customerIDCell">
-    <td
-      suppressContentEditableWarning={true}
-      className="text-left"
-      contentEditable="true"
-    >
-      {props.val.des}{" "}
-    </td>
-    <td
-      className="duration1"
-      suppressContentEditableWarning={true}
-      contentEditable="true"
-    >
-      1
-    </td>
-    <td>kg</td>
-    <td
-      className="cost_hr1"
-      suppressContentEditableWarning={true}
-      contentEditable="true"
-    >
-      {props.val.amount}
-    </td>
-    <td className="mat_cost1" colspan="2">
-      {props.val.amount}
-    </td>
-  </tr>
-);
+const Row = (props) => {
+  return (
+    <tr className="text-right i-val customerIDCell">
+      <td
+        class="remove-row1"
+        onClick={(e) => props.deleteRow(props.idx)}
+        id="myRemove"
+      >
+        ×
+      </td>
+      <td
+        suppressContentEditableWarning={true}
+        className="text-left"
+        contentEditable="true"
+      >
+        {props.val.des}{" "}
+      </td>
+      <td
+        className="duration1"
+        suppressContentEditableWarning={true}
+        contentEditable="true"
+      >
+        {props.val.due_date}
+      </td>
+      <td suppressContentEditableWarning={true} contentEditable="true">
+        {props.val.hourly}
+      </td>
+      <td
+        className="cost_hr1"
+        suppressContentEditableWarning={true}
+        contentEditable="true"
+      >
+        0
+      </td>
+      <td className="mat_cost1" colspan="2">
+        {props.val.amount}
+      </td>
+    </tr>
+  );
+};
 
 export default withTranslation()(Invoice);

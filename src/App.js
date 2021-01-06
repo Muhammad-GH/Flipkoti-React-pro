@@ -21,6 +21,7 @@ import {
   Mycontracts,
   Reset,
   Confirmed,
+  MyNotifications,
 } from "./router/materialRouter";
 import {
   Dashboard,
@@ -37,6 +38,8 @@ import {
   InvoiceListing,
   ProposalListing,
   AgreementListing,
+  Phase,
+  PhaseListing,
 } from "./router/bussinessRouter";
 
 // stylesheets
@@ -62,10 +65,14 @@ function App() {
           <Route exact path="/work-list" component={Worklistings} />
           <Route
             exact
-            path="/create-material-list"
+            path="/create-material-list/:id?"
             component={Createmateriallist}
           />
-          <Route exact path="/create-work-list" component={Createworklist} />
+          <Route
+            exact
+            path="/create-work-list/:id?"
+            component={Createworklist}
+          />
           <Route
             exact
             path="/material-offer-detail/:id"
@@ -76,6 +83,7 @@ function App() {
           <Route exact path="/myaccount" component={Myaccount} />
           <Route exact path="/listing-detail/:id" component={ListDetails} />
           <Route exact path="/my-contracts" component={Mycontracts} />
+          <Route exact path="/my-notif" component={MyNotifications} />
         </Switch>
         {/* marketplace ends */}
 
@@ -109,6 +117,8 @@ function App() {
           <Route exact path="/customers-list" component={CustomerListings} />
           <Route exact path="/invoice" component={Invoice} />
           <Route exact path="/invoice-list" component={InvoiceListing} />
+          <Route exact path="/myphases/:id?" component={Phase} />
+          <Route exact path="/phase-list" component={PhaseListing} />
         </Switch>
         {/* my bussiness ends */}
       </Router>

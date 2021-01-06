@@ -17,14 +17,22 @@ class ProposalListing extends Component {
   };
 
   componentDidMount = async () => {
-    this.loadProposals();
+    this._isMounted = true;
+    this.axiosCancelSource = axios.CancelToken.source();
+
+    this.loadProposals(this.axiosCancelSource);
   };
 
   componentDidUpdate = async (prevProps, prevState) => {
     if (prevState.changed !== this.state.changed) {
-      this.loadProposals();
+      this.loadProposals(this.axiosCancelSource);
     }
   };
+
+  componentWillUnmount() {
+    this._isMounted = false;
+    this.axiosCancelSource.cancel();
+  }
 
   viewProposal = async (...args) => {
     this.setState({
@@ -33,19 +41,42 @@ class ProposalListing extends Component {
     });
   };
 
-  loadProposals = async () => {
+  handleSubmit = async (...args) => {
+    const token = await localStorage.getItem("token");
+    axios
+      .get(`${url}/api/proposal/upd/${args[0]}/${args[1]}/${args[2]}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      .then((result) => {
+        window.location.reload();
+      })
+      .catch((err) => {
+        console.log(err.response);
+      });
+  };
+
+  loadProposals = async (axiosCancelSource) => {
     const token = await localStorage.getItem("token");
     axios
       .get(`${url}/api/proposal/get`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        cancelToken: axiosCancelSource.token,
       })
       .then((result) => {
-        this.setState({ proposals: result.data });
+        if (this._isMounted) {
+          this.setState({ proposals: result.data });
+        }
       })
       .catch((err) => {
-        console.log(err.response);
+        if (axios.isCancel(err)) {
+          console.log("Request canceled", err.message);
+        } else {
+          console.log(err.response);
+        }
       });
   };
   searchSpace = (event) => {
@@ -54,11 +85,22 @@ class ProposalListing extends Component {
 
   render() {
     const { t, i18n } = this.props;
-    const proposalsList = this.state.proposals.filter((data) => {
-      if (this.state.search == null) return data;
-      else if (data.proposal_request_id.toString().includes(this.state.search))
-        return data;
-    });
+    let proposalsList =
+      typeof this.state.proposals !== "string"
+        ? this.state.proposals.filter((data) => {
+            if (this.state.search == null) return data;
+            else if (
+              data.proposal_request_id.toString().includes(this.state.search) ||
+              data.proposal_names
+                .toLowerCase()
+                .includes(this.state.search.toLowerCase()) ||
+              data.proposal_client_company
+                .toLowerCase()
+                .includes(this.state.search.toLowerCase())
+            )
+              return data;
+          })
+        : [];
 
     const proposal = proposalsList.map(
       ({
@@ -70,6 +112,7 @@ class ProposalListing extends Component {
         proposal_client_email,
         sender_isLogged,
         proposal_pdf,
+        proposal_client_company,
         proposal_names,
         proposal_notif: {
           notification_message,
@@ -94,11 +137,11 @@ class ProposalListing extends Component {
               ></label>
             </div>
           </td>
-          <td data-label="Request ID: ">{proposal_request_id}</td>
-          <td data-label="Type: ">{proposal_client_type}</td>
-          <td data-label="Email: ">{proposal_client_email}</td>
-          <td data-label="Message: ">{notification_message}</td>
+          {/* <td data-label="Request ID: ">{proposal_request_id}</td> */}
           <td data-label="PropName: ">{proposal_names}</td>
+          <td data-label="Type: ">{proposal_client_company}</td>
+          <td data-label="Email: ">{proposal_client_email}</td>
+          {/* <td data-label="Message: ">{notification_message}</td> */}
           <td data-label="Status: ">
             {proposal_status === 0
               ? "Draft"
@@ -183,10 +226,66 @@ class ProposalListing extends Component {
                   data-toggle="modal"
                   data-target="#agreement-proposal"
                   type="button"
-                  class="btn btn-outline-primary mt-3"
+                  class="btn btn-outline-primary mt-3 mr-4"
                 >
-                  View message
+                  View notes
                 </button>
+                {proposal_client_type === "resource" &&
+                proposal_status === 1 ? (
+                  <React.Fragment>
+                    <button
+                      onClick={() =>
+                        this.viewProposal(
+                          notification_sender_id,
+                          notification_bid_id,
+                          notification_user_id,
+                          notification_table_name,
+                          notification_id,
+                          proposal_id,
+                          2,
+                          "resource"
+                        )
+                      }
+                      className="btn btn-outline-dark mt-3 mr-4"
+                      data-toggle="modal"
+                      data-target="#agreement-proposal"
+                      type="button"
+                    >
+                      Accept
+                    </button>
+                    <button
+                      onClick={() =>
+                        this.viewProposal(
+                          notification_sender_id,
+                          notification_bid_id,
+                          notification_user_id,
+                          notification_table_name,
+                          notification_id,
+                          proposal_id,
+                          3,
+                          "resource"
+                        )
+                      }
+                      className="btn btn-outline-dark mt-3 mr-4"
+                      data-toggle="modal"
+                      data-target="#agreement-proposal"
+                      type="button"
+                    >
+                      Decline
+                    </button>
+
+                    <Link
+                      to={{
+                        pathname: `/business-propsal-create/${proposal_request_id}/${proposal_client_id}/update`,
+                      }}
+                      type="button"
+                      class="btn btn-outline-dark mt-3 mr-4"
+                      style={{ marginRight: "20px" }}
+                    >
+                      Revise
+                    </Link>
+                  </React.Fragment>
+                ) : null}
                 <AgreementProposalModal
                   propsObj={this.state.properties}
                   proposal_id={this.state.proposal_id}
@@ -260,13 +359,14 @@ class ProposalListing extends Component {
                   type="button"
                   class="btn btn-outline-dark mt-3"
                 >
-                  Revise
+                  Revise notes
                 </button>
                 <AgreementProposalModal
                   propsObj={this.state.properties}
                   proposal_id={this.state.proposal_id}
                   table={"pro_proposal"}
                 />
+                <br />
               </div>
             )}
           </td>
@@ -280,9 +380,13 @@ class ProposalListing extends Component {
         <div className="sidebar-toggle"></div>
         <nav aria-label="breadcrumb">
           <ol className="breadcrumb">
-            <li className="breadcrumb-item active" aria-current="page">
+            <Link
+              to="/business-dashboard"
+              className="breadcrumb-item active"
+              aria-current="page"
+            >
               {t("mycustomer.heading")}
-            </li>
+            </Link>
             <li className="breadcrumb-item active" aria-current="page">
               {t("b_sidebar.proposal.proposal")}
             </li>
@@ -329,7 +433,7 @@ class ProposalListing extends Component {
               <div className="card">
                 <div className="card-header">
                   <h2 className="head2">
-                    {t("c_material_list.listing.my_listings")}
+                    {t("c_material_list.listing.prop_listings")}
                   </h2>
                   <div className="btn-group">
                     <Link
@@ -358,11 +462,11 @@ class ProposalListing extends Component {
                               ></label>
                             </div>
                           </th>
-                          <th>{t("c_material_list.listing.ref")}</th>
-                          <th>{t("c_material_list.listing.type")}</th>
-                          <th>{t("account.email")}</th>
-                          <th>{t("myproposal.message")}</th>
+                          {/* <th>{t("c_material_list.listing.ref")}</th> */}
                           <th>{t("myproposal.prop_name")}</th>
+                          <th>{t("c_material_list.listing.prop_company")}</th>
+                          <th>{t("account.email")}</th>
+                          {/* <th>{t("myproposal.message")}</th> */}
                           <th>{t("account.status")}</th>
                           <th>{t("myproposal.Message")}</th>
                           <th>{t("myproposal.action")}</th>

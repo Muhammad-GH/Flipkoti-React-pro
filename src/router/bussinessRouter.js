@@ -14,6 +14,8 @@ import Invoice from "../components/myBussiness/myInvoice/Invoice";
 import InvoiceListing from "../components/myBussiness/myInvoice/InvoiceListing";
 import ProposalListing from "../components/myBussiness/myProposal/ProposalListing";
 import AgreementListing from "../components/myBussiness/myAgreement/AgreementListing";
+import Phase from "../components/myBussiness/myPhases/Phase";
+import PhaseListing from "../components/myBussiness/myPhases/PhaseListing";
 
 export {
   Dashboard,
@@ -30,4 +32,6 @@ export {
   InvoiceListing,
   ProposalListing,
   AgreementListing,
+  Phase,
+  PhaseListing,
 };

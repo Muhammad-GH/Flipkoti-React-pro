@@ -25,12 +25,14 @@ export default class AgreementProposalModal extends Component {
     data.set("table_name", this.props.propsObj[3]);
     data.set("notifID", this.props.propsObj[4]);
     data.set("status", this.props.propsObj[6]);
+    data.set("optional", this.props.propsObj[7]);
 
     const response = await axios.post(`${url}/api/revisions/insert`, data, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     });
+    window.location.reload();
 
     // Display the key/value pairs
     // for (var pair of data.entries()) {
@@ -129,7 +131,9 @@ export default class AgreementProposalModal extends Component {
                               <dt className="flex-grow-0">{user_name}</dt>
                               <dd>
                                 <h5>
-                                  Proposal{" "}
+                                  {this.props.table === "pro_agreement"
+                                    ? "Agreement"
+                                    : "Proposal"}{" "}
                                   <b>
                                     {(status === 4 ? "revised" : null) ||
                                       (status === 3 ? "declined" : null) ||

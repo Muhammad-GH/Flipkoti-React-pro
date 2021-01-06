@@ -112,6 +112,19 @@ $(document).ready(function () {
     }
   });
 
+  // modals
+  window.addEventListener("popstate", (event) => {
+    $("#add-plan").modal("hide");
+    $("#edit-info").modal("hide");
+    $("#add-cus").modal("hide");
+    $("#agreement-proposal").modal("hide");
+    $("#preview-info").modal("hide");
+    $("#save").modal("hide");
+    $("#open").modal("hide");
+    $("#closeagreement").modal("hide");
+    $("#send-invoice").modal("hide");
+  });
+
   //  personal jquery
   $(document).on("click", ".open-AcceptDialog", function (e) {
     var name = $(this).data("id");
@@ -119,20 +132,29 @@ $(document).ready(function () {
     var user_id = $(this).data("user_id");
     $(" #tb_user_id").val(user_id);
     $(".modal-body #name").text(name);
-    $(".modal-body #bid").text(`bid amount: ${bid}`);
+    $(".modal-body #bid").text(`${bid}`);
   });
   $(document).on("click", ".open-DeclineDialog", function (e) {
     var user_id = $(this).data("user_id");
     $(" #tb_user_id").val(user_id);
   });
+
   $(document).on("click", ".remove-row", function () {
     $(this).parent().parent("tr").remove();
     calculateColumn(1);
+    calculateColumn(2);
     calcMultiple(this);
     calculateColumn(3);
     calcTax();
     calcProfit();
     calcTotal();
+  });
+  $(document).on("click", ".remove-row1", function () {
+    // calculateColumn(2);
+    calcMultiple1(this);
+    calculateColumn(5);
+    calcTax1(5);
+    calcTotal1(5);
   });
   $(document).on("keyup", ".duration", function (e) {
     calculateColumn(1, e);
@@ -143,18 +165,17 @@ $(document).ready(function () {
     calcTotal();
   });
   $(document).on("keyup change", ".duration1", function (e) {
-    // calculateColumn(1, e);
     calcMultiple1(this);
-    calculateColumn(4, e);
-    calcTax1(4);
-    calcTotal1(4);
+    calculateColumn(5, e);
+    calcTax1(5);
+    calcTotal1(5);
   });
   $(document).on("keyup change", ".cost_hr1", function (e) {
     // calculateColumn(2, e);
     calcMultiple1(this);
-    calculateColumn(4, e);
-    calcTax1(4);
-    calcTotal1(4);
+    calculateColumn(5, e);
+    calcTax1(5);
+    calcTotal1(5);
   });
   $(document).on("keyup", ".cost_hr", function (e) {
     calculateColumn(2, e);
@@ -169,8 +190,8 @@ $(document).ready(function () {
     calcTotal();
   });
   $(document).on("keyup change", ".tax1", function (e) {
-    calcTax1(4);
-    calcTotal1(4);
+    calcTax1(5);
+    calcTotal1(5);
   });
   $(document).on("keyup", ".profit", function (e) {
     calcProfit();
@@ -187,7 +208,8 @@ $(document).ready(function () {
     var cost_hr =
       parent.find(".cost_hr").text() == "" ? 1 : parent.find(".cost_hr").text();
     var total = duration * cost_hr;
-    parent.find(".mat_cost").text(total);
+    console.log(total);
+    parent.find(".mat_cost").text(Math.round(total));
   }
   //  Calculate Multiple
   function calcMultiple1(e) {
@@ -201,7 +223,7 @@ $(document).ready(function () {
         ? 1
         : parent.find(".cost_hr1").text();
     var total = duration * cost_hr;
-    parent.find(".mat_cost1").text(total);
+    parent.find(".mat_cost1").text(Math.round(total));
   }
 
   //  Calculate Total
@@ -211,8 +233,8 @@ $(document).ready(function () {
     var profit_res = $(".profit_res").text();
     var total =
       parseFloat(sub_total) + parseFloat(tax_res) + parseFloat(profit_res);
-    $(`.total`).text(total);
-    $(`#total`).val(total);
+    $(`.total`).text(Math.round(total));
+    $(`#total`).val(Math.round(total));
   }
   //  Calculate Total
   function calcTotal1(index) {
@@ -220,26 +242,27 @@ $(document).ready(function () {
     var tax_res = $(".tax_res").text();
 
     var total = parseFloat(sub_total) + parseFloat(tax_res);
-    $(`.total`).text(total);
+    $(`.total`).text(Math.round(total));
   }
 
   //  Calculate Tax%
   function calcTax() {
     var mat_cost = $("#3result").text();
     var tax = $(".tax").text();
-    $(`.tax_res`).text((tax / 100) * mat_cost);
+    $(`.tax_res`).text(Math.round((tax / 100) * mat_cost));
   }
   //  Calculate Tax%
   function calcTax1(index) {
     var mat_cost = $(`#${index}result`).text();
     var tax = $(".tax1").text();
-    $(`.tax_res`).text((tax / 100) * mat_cost);
+    console.log(mat_cost, tax);
+    $(`.tax_res`).text(Math.round((tax / 100) * mat_cost));
   }
   //  Calculate Profit%
   function calcProfit() {
     var mat_cost = $("#3result").text();
     var profit = $(".profit").text();
-    $(`.profit_res`).text((profit / 100) * mat_cost);
+    $(`.profit_res`).text(Math.round((profit / 100) * mat_cost));
   }
   // Add cloumns
   function calculateColumn(index) {
@@ -268,7 +291,7 @@ $(document).ready(function () {
     var total = 0;
     // on every keyup, loop all the elements and add all the results
     $(".my-input").each(function (index, element) {
-      var val = parseFloat($(element).val());
+      var val = parseFloat($(element).val() || $(this).attr("placeholder"));
       if (!isNaN(val)) {
         total += val;
       }
@@ -283,7 +306,6 @@ $(document).ready(function () {
     $("._fee").val(`${calculatePercent(fee, total)}`);
     $("._est_pay").val(`${calculateSub(_fee, total)}`);
     $("._c_total").val(`${total}`);
-    $(`#rate_`).text($(`._c_total`).val());
   });
 
   $("._c_total").val(`${0}`);
@@ -293,7 +315,7 @@ $(document).ready(function () {
     var total = 0;
     // on every keyup, loop all the elements and add all the results
     $(".my-input").each(function (index, element) {
-      var val = parseFloat($(element).val());
+      var val = parseFloat($(element).val() || $(this).attr("placeholder"));
       if (!isNaN(val)) {
         total += val;
       }
@@ -315,7 +337,7 @@ $(document).ready(function () {
     var total = 0;
     // on every keyup, loop all the elements and add all the results
     $(".my-input1").each(function (index, element) {
-      var val = parseFloat($(element).val());
+      var val = parseFloat($(element).val() || $(this).attr("placeholder"));
       if (!isNaN(val)) {
         total += val;
       }
@@ -334,10 +356,10 @@ $(document).ready(function () {
   });
 
   function calculatePercent(percent, num) {
-    return (percent / 100) * num;
+    return Math.round((percent / 100) * num);
   }
   function calculateSub(num1, num2) {
-    return num2 - num1;
+    return Math.round(num2 - num1);
   }
 
   $(document).on("click", ".clk", function (e) {
@@ -345,12 +367,14 @@ $(document).ready(function () {
     let gg;
     let arr = [];
     $(".customerIDCell").each(function (index, tr) {
-      var element = document.getElementById("myRemove");
-      element.remove();
+      // var element = document.getElementById("myRemove");
+      // element.remove();
       var lines = $("td", tr).map(function (index, td) {
         return $(td).text();
       });
-      gg = `${lines[0]},${lines[1]},${lines[2]},${lines[3]}`.split(",");
+      gg = `${lines[0].substring(1)},${lines[1]},${lines[2]},${lines[3]}`.split(
+        ","
+      );
 
       var keys = ["items", "dur", "cost", "mat"];
 
@@ -363,24 +387,46 @@ $(document).ready(function () {
     $(`#est_time`).val($(`#1result`).text());
     $(`#sub_total`).val($(`#2result`).text());
     $(`#items_cost`).val($(`#3result`).text());
-    $(`#tax`).val($(`.tax`).text());
-    $(`#profit`).val($(`.profit`).text());
-    $(`#tax_calc`).val($(`.tax_res`).text());
-    $(`#profit_calc`).val($(`.profit_res`).text());
-    $(`#total`).val($(`#total`).val());
+    $(`#tax`).val(Math.round($(`.tax`).text()));
+    $(`#profit`).val(Math.round($(`.profit`).text()));
+    $(`#tax_calc`).val(Math.round($(`.tax_res`).text()));
+    $(`#profit_calc`).val(Math.round($(`.profit_res`).text()));
+    $(`#total`).val(Math.round($(`#total`).val()));
   });
+
+  var limit = 10;
+
+  $(document).on(
+    "keypress",
+    ".duration, .cost_hr, .mat_cost, .tax, .profit",
+    function (e) {
+      if (isNaN(String.fromCharCode(e.which))) e.preventDefault();
+      return this.innerHTML.length < limit;
+    }
+  );
+  // .on({
+  //   paste: function (e) {
+  //     if (isNaN(String.fromCharCode(e.which))) e.preventDefault();
+  //   },
+  //   drop: function (e) {
+  //     e.preventDefault();
+  //     e.stopPropagation();
+  //   },
+  // });
 
   $(document).on("click", ".clk1", function (e) {
     e.preventDefault();
     let gg;
     let arr = [];
     $(".customerIDCell").each(function (index, tr) {
-      var element = document.getElementById("myRemove");
-      element.remove();
+      // var element = document.getElementById("myRemove");
+      // element.remove();
       var lines = $("td", tr).map(function (index, td) {
         return $(td).text();
       });
-      gg = `${lines[0]},${lines[1]},${lines[2]},${lines[3]}`.split(",");
+      gg = `${lines[0].substring(1)},${lines[1]},${lines[2]},${lines[3]}`.split(
+        ","
+      );
 
       var keys = ["items", "dur", "cost", "mat"];
 
@@ -390,17 +436,19 @@ $(document).ready(function () {
       arr.push(result);
     });
     $(`#items`).val(JSON.stringify(arr));
-    $(`#est_time`).val($(`#1result`).text());
-    $(`#sub_total`).val($(`#2result`).text());
-    $(`#items_cost`).val($(`#3result`).text());
-    $(`#tax`).val($(`.tax`).text());
-    $(`#profit`).val($(`.profit`).text());
-    $(`#tax_calc`).val($(`.tax_res`).text());
-    $(`#profit_calc`).val($(`.profit_res`).text());
+    $(`#est_time`).val(Math.round($(`#1result`).text()));
+    $(`#sub_total`).val(Math.round($(`#2result`).text()));
+    $(`#items_cost`).val(Math.round($(`#3result`).text()));
+    $(`#tax`).val(Math.round($(`.tax`).text()));
+    $(`#profit`).val(Math.round($(`.profit`).text()));
+    $(`#tax_calc`).val(Math.round($(`.tax_res`).text()));
+    $(`#profit_calc`).val(Math.round($(`.profit_res`).text()));
     $(`#total`).val(
-      $(`.total`)
-        .text()
-        .replace(/[^0-9]/g, "")
+      Math.round(
+        $(`.total`)
+          .text()
+          .replace(/[^0-9]/g, "")
+      )
     );
   });
 
@@ -431,10 +479,17 @@ $(document).ready(function () {
     let gg;
     let arr = [];
     $(".customerIDCell").each(function (index, tr) {
+      // if (document.getElementById("myRemove")) {
+      //   var element = document.getElementById("myRemove");
+      //   element.remove();
+      // } else {
+      //   $(".remove-row").attr("id", "myRemove");
+      // }
+
       var lines = $("td", tr).map(function (index, td) {
         return $(td).text();
       });
-      gg = `${lines[0]},${lines[1]},${lines[2]},${lines[3]},${lines[4]}`.split(
+      gg = `${lines[1]},${lines[2]},${lines[3]},${lines[4]},${lines[5]}`.split(
         ","
       );
 
@@ -446,7 +501,7 @@ $(document).ready(function () {
       arr.push(result);
     });
     $(`#_items`).val(JSON.stringify(arr));
-    $(`#_sub_total`).val($(`#4result`).text());
+    $(`#_sub_total`).val($(`#5result`).text());
     $(`#_tax`).val($(`.tax1`).text());
     $(`#_tax_calc`).val($(`.tax_res`).text());
     $(`#_total`).val(

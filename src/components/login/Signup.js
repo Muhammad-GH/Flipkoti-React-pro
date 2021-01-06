@@ -6,6 +6,7 @@ import axios from "axios";
 import { Helper, url } from "../../helper/helper";
 import Alert from "react-bootstrap/Alert";
 import { withTranslation } from "react-i18next";
+import Spinner from "react-bootstrap/Spinner";
 
 class Signup extends Component {
   state = {
@@ -19,6 +20,7 @@ class Signup extends Component {
     errors: [],
     show_errors: false,
     status: null,
+    loading: false,
   };
 
   handleChange1 = (event) => {
@@ -45,12 +47,13 @@ class Signup extends Component {
 
   handleSubmit = (event) => {
     event.preventDefault();
+    this.setState({ status: null, show_errors: false });
 
     if (this.state.password !== this.state.c_password) {
       const { t } = this.props;
       return this.setState({ errors: t("success.pass_mat") });
     }
-
+    this.setState({ loading: true });
     axios
       .post(`${url}/api/register?`, {
         first_name: this.state.first_name,
@@ -62,7 +65,7 @@ class Signup extends Component {
         subtype: this.state.subtype,
       })
       .then((res) => {
-        console.log(res);
+        this.setState({ loading: false });
         const { history } = this.props;
         history.push("/");
       })
@@ -75,14 +78,14 @@ class Signup extends Component {
         if (err.response.status === 500) {
           this.setState({ status: 500 });
         }
-        this.setState({ show_errors: true });
+        this.setState({ show_errors: true, loading: false });
       });
   };
 
   render() {
     const { t, i18n } = this.props;
 
-    let alert;
+    let alert, loading;
     if (this.state.show_errors === true) {
       alert = (
         <div style={{ paddingTop: "10px" }}>
@@ -99,6 +102,13 @@ class Signup extends Component {
             {t("success.unique")}
           </Alert>
         </div>
+      );
+    }
+    if (this.state.loading === true) {
+      loading = (
+        <Spinner animation="border" role="status">
+          <span className="sr-only">Loading...</span>
+        </Spinner>
       );
     }
 
@@ -187,7 +197,7 @@ class Signup extends Component {
                     <option value="Provider item">Provider item</option>
                   </select>
                 </div>
-                <Button title="Register" />
+                {loading ? loading : <Button title="Register" />}
                 {alert ? alert : null}
               </form>
             </div>

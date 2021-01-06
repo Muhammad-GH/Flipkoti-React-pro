@@ -17,24 +17,39 @@ class ResourceListing extends Component {
   };
 
   componentDidMount = async () => {
-    this.loadResources();
+    this._isMounted = true;
+    this.axiosCancelSource = axios.CancelToken.source();
+
+    this.loadResources(this.axiosCancelSource);
   };
 
-  loadResources = async () => {
+  componentWillUnmount() {
+    this._isMounted = false;
+    this.axiosCancelSource.cancel();
+  }
+
+  loadResources = async (axiosCancelSource) => {
     const token = await localStorage.getItem("token");
     axios
       .get(`${url}/api/resources-list/Client`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        cancelToken: axiosCancelSource.token,
       })
       .then((result) => {
-        const { data } = result.data;
-        this.feeds_search = data;
-        this.setState({ resources: data });
+        if (this._isMounted) {
+          const { data } = result.data;
+          this.feeds_search = data;
+          this.setState({ resources: data });
+        }
       })
       .catch((err) => {
-        console.log(err.response);
+        if (axios.isCancel(err)) {
+          console.log("Request canceled", err.message);
+        } else {
+          console.log(err.response);
+        }
       });
   };
 
@@ -72,59 +87,64 @@ class ResourceListing extends Component {
   render() {
     const { t, i18n } = this.props;
 
-    const items = this.state.resources.filter((data) => {
-      if (this.state.search == null) return data;
-      else if (
-        data.first_name
-          .toLowerCase()
-          .includes(this.state.search.toLowerCase()) ||
-        data.company.toLowerCase().includes(this.state.search.toLowerCase())
-      ) {
-        return data;
-      }
-    });
+    const items = this.state.resources
+      ? this.state.resources.filter((data) => {
+          if (this.state.search == null) return data;
+          else if (
+            data.first_name
+              .toLowerCase()
+              .includes(this.state.search.toLowerCase()) ||
+            data.company.toLowerCase().includes(this.state.search.toLowerCase())
+          ) {
+            return data;
+          }
+        })
+      : [];
 
-    const resource = items.map((resource) => (
-      <tr key={resource.id}>
-        <td style={{ width: "50px" }}>
-          <div className="form-check">
-            <input
-              type="checkbox"
-              className="form-check-input"
-              id={`check2${resource.id}`}
-            />
-            <label
-              className="form-check-label"
-              htmlFor={`check2${resource.id}`}
-            ></label>
-          </div>
-        </td>
-        <td data-label="First Name: ">{resource.first_name}</td>
-        <td data-label="Last Name: ">{resource.last_name}</td>
-        <td data-label="Email: ">{resource.email}</td>
-        <td data-label="Company: ">{resource.company}</td>
-        <td data-label="Type: ">{resource.type}</td>
-        <td data-label="Status: ">
-          {resource.status === 1 ? "Active" : "Inactive"}
-        </td>
-        <td data-label="View: ">
-          <Link
-            to={{ pathname: `mycustomers/${resource.id}` }}
-            className="btn btn-info"
-          >
-            <i className="icon-edit"></i>Details
-          </Link>
-        </td>
-        <td data-label="Delete: ">
-          <button
-            onClick={(e) => this.handleDelete(resource.id)}
-            className="btn btn-light"
-          >
-            <i className="icon-trash"></i>Delete
-          </button>
-        </td>
-      </tr>
-    ));
+    const resource = items
+      ? items.map((resource) => (
+          <tr key={resource.id}>
+            <td style={{ width: "50px" }}>
+              <div className="form-check">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  id={`check2${resource.id}`}
+                />
+                <label
+                  className="form-check-label"
+                  htmlFor={`check2${resource.id}`}
+                ></label>
+              </div>
+            </td>
+            <td data-label="First Name: ">{resource.first_name}</td>
+            <td data-label="Last Name: ">{resource.last_name}</td>
+            <td data-label="Phone: ">{resource.phone}</td>
+            <td data-label="Email: ">{resource.email}</td>
+            <td data-label="Company: ">{resource.company}</td>
+            <td data-label="Type: ">{resource.type}</td>
+            <td data-label="Status: ">
+              {resource.status === 1 ? "Active" : "Inactive"}
+            </td>
+            <td data-label="View: ">
+              <Link
+                to={{ pathname: `mycustomers/${resource.id}` }}
+                className="btn btn-info"
+              >
+                <i className="icon-edit"></i>Details
+              </Link>
+            </td>
+            <td data-label="Delete: ">
+              <button
+                onClick={(e) => this.handleDelete(resource.id)}
+                className="btn btn-light"
+              >
+                <i className="icon-trash"></i>Delete
+              </button>
+            </td>
+          </tr>
+        ))
+      : [];
 
     return (
       <div>
@@ -132,9 +152,13 @@ class ResourceListing extends Component {
         <div className="sidebar-toggle"></div>
         <nav aria-label="breadcrumb">
           <ol className="breadcrumb">
-            <li className="breadcrumb-item active" aria-current="page">
+            <Link
+              to="/business-dashboard"
+              className="breadcrumb-item active"
+              aria-current="page"
+            >
               {t("mycustomer.heading")}
-            </li>
+            </Link>
             <li className="breadcrumb-item active" aria-current="page">
               {t("mycustomer.heading_2")}
             </li>
@@ -216,6 +240,7 @@ class ResourceListing extends Component {
                           </th>
                           <th>{t("account.first_name")}</th>
                           <th>{t("account.last_name")}</th>
+                          <th>{t("account.phone")}</th>
                           <th>{t("account.email")}</th>
                           <th>{t("account.company")}</th>
                           <th>{t("account.type")}</th>

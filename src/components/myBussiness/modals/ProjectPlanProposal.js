@@ -1,6 +1,9 @@
 import React, { Component } from "react";
 import axios from "axios";
 import { Helper, url } from "../../../helper/helper";
+import { withTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
+import $ from "jquery";
 
 const initialState = {
   rows: [],
@@ -22,6 +25,8 @@ const initialState = {
   template_name: "",
   template_names: [],
   id: 0,
+  temp_mod: 0,
+  seperate: 0,
 };
 
 class ProjectPlanProposal extends Component {
@@ -45,12 +50,31 @@ class ProjectPlanProposal extends Component {
     template_name: "",
     template_names: [],
     id: 0,
+    temp_mod: 0,
+    seperate: 0,
   };
+
+  componentDidMount() {
+    $("#goto").change(function () {
+      if ($(this).val() == "") {
+        if (
+          window.confirm("Are you sure you want to move to a different page?")
+        ) {
+          $("#add-plan").modal("hide");
+          window.location.href = "#/propsal-projectplanning";
+        } else {
+          $(this).val("Name");
+        }
+      }
+    });
+  }
 
   componentDidUpdate(prevProps) {
     // Typical usage (don't forget to compare props):
+
     if (this.props.onType !== prevProps.onType) {
       this.setState(initialState);
+      this.setState({ row_phase: [] });
       this.loadNames(this.props.onType);
       this.loadArea();
     }
@@ -77,63 +101,202 @@ class ProjectPlanProposal extends Component {
     });
   };
 
-  handleItemsAdd = () => {
-    this.props.onSelectWorkTemplate(
-      this.itemsInput.value,
-      this.totalInput.value,
-      this.props.onType,
-      this.state.template_name,
-      this.state.id
-    );
+  deleteRow = (index) => {
+    var row_phase = [...this.state.row_phase];
+    row_phase.splice(index, 1);
+
+    let elements = document.getElementById("myRemove");
+    this.setState({ row_phase }, () => {
+      this.calculateColumnR(1);
+      this.calculateColumnR(2);
+      this.calcMultipleR(elements);
+      this.calculateColumnR(3);
+      this.calcTaxR();
+      this.calcProfitR();
+      this.calcTotalR();
+    });
+    this.setState({ temp_mod: 1 });
   };
 
-  updateData = async (event) => {
-    // event.preventDefault()
-    this.saveData();
-    this.props.onSelectWorkTemplate(
-      this.itemsInput.value,
-      this.totalInput.value,
-      this.props.onType,
-      this.state.template_name
-    );
-    const token = await localStorage.getItem("token");
+  calcTotalR = (params) => {
+    var sub_total = $("#3result").text();
+    var tax_res = $(".tax_res").text();
+    var profit_res = $(".profit_res").text();
+    var total =
+      parseFloat(sub_total) + parseFloat(tax_res) + parseFloat(profit_res);
+    $(`.total`).text(Math.round(total));
+    $(`#total`).val(Math.round(total));
+  };
 
-    const params = {
-      items: this.state.items,
-      est_time: this.state.est_time,
-      sub_total: this.state.sub_total,
-      tax: this.state.tax,
-      profit: this.state.profit,
-      items_cost: this.state.items_cost,
-      total: this.state.total,
-      tax_calc: this.state.tax_calc,
-      profit_calc: this.state.profit_calc,
-    };
+  calcProfitR = (params) => {
+    var mat_cost = $("#3result").text();
+    var profit = $(".profit").text();
+    $(`.profit_res`).text(Math.round((profit / 100) * mat_cost));
+  };
 
-    axios
-      .put(`${url}/api/pro-plan/update/${this.state.template_name}`, null, {
-        params: params,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-      .then((res) => {
-        this.setState({ error: false, msg: "Updated successfully!" });
-        alert(this.state.msg);
-        window.location.reload();
-      })
-      .catch((err) => {
-        this.setState({ error: true, msg: err.response.data.error });
-        alert("Error occured");
-        window.location.reload();
-      });
+  calcTaxR = (params) => {
+    var mat_cost = $("#3result").text();
+    var tax = $(".tax").text();
+    $(`.tax_res`).text(Math.round((tax / 100) * mat_cost));
+  };
+
+  calcMultipleR = (e) => {
+    var parent = $(e).closest("tr");
+    var duration =
+      parent.find(".duration").text() == ""
+        ? 1
+        : parent.find(".duration").text();
+    var cost_hr =
+      parent.find(".cost_hr").text() == "" ? 1 : parent.find(".cost_hr").text();
+    var total = duration * cost_hr;
+    parent.find(".mat_cost").text(Math.round(total));
+  };
+
+  calculateColumnR = (params) => {
+    var total = 0;
+    $("table tr.i-val").each(function () {
+      var value = parseInt($("td", this).eq(params).text());
+
+      if (!isNaN(value)) {
+        total += value;
+      }
+    });
+    $(`#${params}result`).text(total);
+  };
+
+  handleItemsAdd = () => {
+    if (window.confirm("Are you sure you wish to add?")) {
+      if (this.state.seperate === 1) {
+        const token = localStorage.getItem("token");
+        const params = {
+          items: this.itemsInput.value,
+          est_time: this.est_timeInput.value,
+          sub_total: this.sub_totalInput.value,
+          tax: this.taxInput.value,
+          profit: this.profitInput.value,
+          tax_calc: this.tax_calcInput.value,
+          profit_calc: this.profit_calcInput.value,
+          items_cost: this.items_costInput.value,
+          total: this.totalInput.value,
+        };
+
+        return axios
+          .put(`${url}/api/pro-plan/update/${this.state.template_name}`, null, {
+            params: params,
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          .then((res) => {
+            this.props.onSelectWorkTemplate(
+              this.itemsInput.value,
+              this.totalInput.value,
+              this.props.onType,
+              this.state.template_name,
+              this.state.id
+            );
+          })
+          .catch((err) => {
+            console.log(err.response.data);
+          });
+      }
+
+      if (this.state.id === 0 && this.state.temp_mod === 0) {
+        const token = localStorage.getItem("token");
+        const params = {
+          items: this.itemsInput.value,
+          est_time: this.est_timeInput.value,
+          sub_total: this.sub_totalInput.value,
+          tax: this.taxInput.value,
+          profit: this.profitInput.value,
+          tax_calc: this.tax_calcInput.value,
+          profit_calc: this.profit_calcInput.value,
+          items_cost: this.items_costInput.value,
+          total: this.totalInput.value,
+          type: this.props.onType,
+          seperate: 1,
+          template_name: `${+new Date()}_${this.props.onType}`,
+        };
+
+        return axios
+          .post(`${url}/api/pro-plan/create`, params, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          .then((res) => {
+            this.setState({
+              id: res.data.id,
+              template_name: res.data.template_name,
+            });
+            this.props.onSelectWorkTemplate(
+              this.itemsInput.value,
+              this.totalInput.value,
+              this.props.onType,
+              this.state.template_name,
+              this.state.id
+            );
+          })
+          .catch((err) => {
+            console.log(err.response.data);
+          });
+      }
+      if (this.state.temp_mod === 1) {
+        const token = localStorage.getItem("token");
+        const params = {
+          items: this.itemsInput.value,
+          est_time: this.est_timeInput.value,
+          sub_total: this.sub_totalInput.value,
+          tax: this.taxInput.value,
+          profit: this.profitInput.value,
+          tax_calc: this.tax_calcInput.value,
+          profit_calc: this.profit_calcInput.value,
+          items_cost: this.items_costInput.value,
+          total: this.totalInput.value,
+          type: this.props.onType,
+          seperate: 1,
+          template_name: `${+new Date()}_${this.props.onType}`,
+        };
+
+        return axios
+          .post(`${url}/api/pro-plan/create`, params, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          })
+          .then((res) => {
+            this.setState({
+              id: res.data.id,
+              template_name: res.data.template_name,
+            });
+            this.props.onSelectWorkTemplate(
+              this.itemsInput.value,
+              this.totalInput.value,
+              this.props.onType,
+              this.state.template_name,
+              this.state.id
+            );
+          })
+          .catch((err) => {
+            console.log(err.response.data);
+          });
+      } else {
+        this.props.onSelectWorkTemplate(
+          this.itemsInput.value,
+          this.totalInput.value,
+          this.props.onType,
+          this.state.template_name,
+          this.state.id
+        );
+      }
+    }
   };
 
   handleName = (event) => {
-    if (event.target.value !== "--Name--") {
-      this.setState({ template_name: event.target.value, loaded: true });
-      this.loadTemplate(event.target.value);
-    }
+    if (event.target.value === "Name" || event.target.value === "")
+      return false;
+    this.setState({ template_name: event.target.value, loaded: true });
+    this.loadTemplate(event.target.value);
   };
 
   loadTemplate = async (val) => {
@@ -157,6 +320,7 @@ class ProjectPlanProposal extends Component {
         template_name,
         total,
         id,
+        seperate,
       } = response.data;
       this.setState({
         row_phase: JSON.parse(items),
@@ -171,6 +335,7 @@ class ProjectPlanProposal extends Component {
         template_name: template_name,
         total: total,
         id: id,
+        seperate,
       });
     }
   };
@@ -200,7 +365,7 @@ class ProjectPlanProposal extends Component {
     }
   };
   changePhase = (event) => {
-    this.setState({ phases: [] });
+    this.setState({ phases: [], phase: "" });
     const token = localStorage.getItem("token");
     let lang = localStorage.getItem("_lng");
     axios
@@ -218,24 +383,61 @@ class ProjectPlanProposal extends Component {
   };
 
   handleSelect = (event) => {
-    this.setState({ phase: event.target.value });
+    if (event.target.value !== "--Select--") {
+      this.setState({ phase: event.target.value });
+    } else {
+      this.setState({ phase: "" });
+    }
   };
   handleAppend = (event) => {
     event.preventDefault();
+
     let rows = this.state.rows;
     let row_phase = this.state.row_phase;
     if (this.state.phase) {
-      rows.push(this.state.phase);
-      let keys = ["items", "dur", "cost", "mat"];
-      let gg = `${this.state.phase},${0},${0},${0}`.split(",");
-      let result = {};
-      keys.forEach((key, i) => (result[key] = gg[i]));
-      row_phase.push(result);
-      this.setState({ rows: rows, row_phase: row_phase });
+      if (this.state.id > 0) {
+        if (this.state.temp_mod === 0) {
+          if (
+            window.confirm(
+              "Are you sure you want to add into existing template?"
+            )
+          ) {
+            rows.push(this.state.phase);
+            let keys = ["items", "dur", "cost", "mat"];
+            let gg = `${this.state.phase},${0},${0},${0}`.split(",");
+            let result = {};
+            keys.forEach((key, i) => (result[key] = gg[i]));
+            row_phase.push(result);
+            this.setState({ rows: rows, row_phase: row_phase, loaded: true });
+            this.setState({ temp_mod: 1 });
+          } else {
+            return false;
+          }
+        } else {
+          rows.push(this.state.phase);
+          let keys = ["items", "dur", "cost", "mat"];
+          let gg = `${this.state.phase},${0},${0},${0}`.split(",");
+          let result = {};
+          keys.forEach((key, i) => (result[key] = gg[i]));
+          row_phase.push(result);
+          this.setState({ rows: rows, row_phase: row_phase, loaded: true });
+          this.setState({ temp_mod: 1 });
+        }
+      } else {
+        rows.push(this.state.phase);
+        let keys = ["items", "dur", "cost", "mat"];
+        let gg = `${this.state.phase},${0},${0},${0}`.split(",");
+        let result = {};
+        keys.forEach((key, i) => (result[key] = gg[i]));
+        row_phase.push(result);
+        this.setState({ rows: rows, row_phase: row_phase, loaded: true });
+      }
     }
   };
 
   render() {
+    const { t, i18n } = this.props;
+
     return (
       <div>
         <div
@@ -250,8 +452,9 @@ class ProjectPlanProposal extends Component {
             <div class="modal-content">
               <div class="modal-header">
                 <h5 class="modal-title" id="exampleModalLabel">
-                  Project Planning
+                  {t("modals.project_plan.heading")}
                 </h5>
+
                 <button
                   type="button"
                   class="close"
@@ -329,7 +532,7 @@ class ProjectPlanProposal extends Component {
                 <div class="row">
                   <div class="col-md">
                     <div class="form-group">
-                      <label>Select area</label>
+                      <label>{t("modals.project_plan.select_area")}</label>
                       <select
                         onChange={this.changePhase}
                         className="form-control"
@@ -344,30 +547,9 @@ class ProjectPlanProposal extends Component {
                     </div>
                   </div>
 
-                  <div class="col-md">
-                    <div class="form-group">
-                      <label>Template name</label>
-                      <div class="flex-group">
-                        <select
-                          onChange={this.handleName}
-                          name="type"
-                          class="form-control"
-                        >
-                          <option>--Name--</option>
-                          {this.state.template_names.map(
-                            ({ template_name }, index) => (
-                              <option value={template_name}>
-                                {template_name}
-                              </option>
-                            )
-                          )}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
                   <div class="col-md-6">
                     <div class="form-group">
-                      <label>Add work phase</label>
+                      <label>{t("modals.project_plan.add_work_phase")}</label>
                       <div class="flex-group">
                         <select
                           onChange={this.handleSelect}
@@ -391,35 +573,67 @@ class ProjectPlanProposal extends Component {
                           onClick={this.handleAppend}
                           class="btn btn-primary"
                         >
-                          Add
+                          {t("modals.project_plan.add")}
                         </button>
                       </div>
                     </div>
                   </div>
+
+                  <div class="col-md">
+                    <div class="form-group">
+                      <label>{t("modals.project_plan.template_name")}</label>
+                      <div class="flex-group">
+                        <select
+                          onChange={this.handleName}
+                          name="type"
+                          class="form-control"
+                          id="goto"
+                        >
+                          <option value="Name">--Name--</option>
+                          {this.state.template_names.map(
+                            ({ template_name }, index) => (
+                              <option value={template_name}>
+                                {template_name}
+                              </option>
+                            )
+                          )}
+                          <option value="">Create template</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <p>
-                  Please save template after altering to prevent data loss...{" "}
-                </p>
+                <p>{t("modals.project_plan.note")} </p>
                 <div class="table-responsive-sm scroller mt-3">
                   <table id="mytable" className="table table-bordered table-sm">
                     <thead>
                       <tr className="text-right">
-                        <th className="text-left">Items</th>
-                        <th>Duration(hrs)</th>
-                        <th>Cost/hr</th>
-                        <th>Total cost</th>
+                        <th className="text-left">
+                          {t("modals.project_plan.items")}
+                        </th>
+                        <th>{t("modals.project_plan.duration")}</th>
+                        <th>{t("modals.project_plan.cost_hr")}</th>
+                        <th>{t("modals.project_plan.total_cost")}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {this.state.row_phase.map((r, index) => (
-                        <Row phase={r} key={index} items={this.state.items} />
+                        <Row
+                          phase={r}
+                          idx={index}
+                          key={index}
+                          items={this.state.items}
+                          deleteRow={this.deleteRow}
+                        />
                       ))}
 
                       <tr
                         style={{ lineHeight: "30px", fontWeight: "bold" }}
                         className="text-right"
                       >
-                        <td data-label="Items: ">Estimated execution time</td>
+                        <td data-label="Items: ">
+                          {t("project_planning.est_time")}
+                        </td>
                         <td data-label="Duration(hrs): " id="1result">
                           {this.state.est_time}
                         </td>
@@ -434,7 +648,10 @@ class ProjectPlanProposal extends Component {
                       </tr>
                       <tr className="text-right">
                         <td data-label="Items: "></td>
-                        <td data-label="Duration(hrs): ">Sub Total</td>
+                        <td data-label="Duration(hrs): ">
+                          {this.props.left} {t("project_planning.sub_total")}{" "}
+                          {this.props.right}
+                        </td>
                         <td data-label="Cost/hr: " id="2result">
                           {this.state.sub_total}
                         </td>
@@ -443,7 +660,9 @@ class ProjectPlanProposal extends Component {
                         </td>
                       </tr>
                       <tr className="text-right">
-                        <td data-label="Items: ">Tax%</td>
+                        <td data-label="Items: ">
+                          {t("project_planning.tax")}%
+                        </td>
                         <td
                           data-label="Duration(hrs): "
                           className="tax"
@@ -460,7 +679,9 @@ class ProjectPlanProposal extends Component {
                         </td>
                       </tr>
                       <tr className="text-right">
-                        <td data-label="Items: ">Profit%</td>
+                        <td data-label="Items: ">
+                          {t("project_planning.profit")}%
+                        </td>
                         <td
                           data-label="Duration(hrs): "
                           className="profit"
@@ -474,7 +695,10 @@ class ProjectPlanProposal extends Component {
                         </td>
                       </tr>
                       <tr className="text-right">
-                        <td data-label="Items: ">Total</td>
+                        <td data-label="Items: ">
+                          {this.props.left} {t("project_planning.total")}{" "}
+                          {this.props.right}
+                        </td>
                         <td
                           colSpan="3"
                           data-label="Duration(hrs): "
@@ -493,9 +717,9 @@ class ProjectPlanProposal extends Component {
                     type="button"
                     class="btn btn-primary mt-3 clk1"
                   >
-                    Add to proposal
+                    {t("modals.project_plan.add_to_proposal")}
                   </button>
-                  <button
+                  {/* <button
                     style={{ float: "right" }}
                     data-dismiss="modal"
                     aria-label="Close"
@@ -504,8 +728,8 @@ class ProjectPlanProposal extends Component {
                     onClick={this.updateData}
                     class="btn btn-success mt-3 clk"
                   >
-                    Update Template
-                  </button>
+                    {t("modals.project_plan.update_proposal")}
+                  </button> */}
                 </div>
               </div>
             </div>
@@ -523,7 +747,11 @@ const Row = (props) => (
       className="text-left "
       data-label="Items: "
     >
-      <span class="remove-row" id="myRemove">
+      <span
+        // class="remove-row"
+        id="myRemove"
+        onClick={(e) => props.deleteRow(props.idx)}
+      >
         ×
       </span>
       {props.phase.items}
@@ -544,4 +772,4 @@ const Row = (props) => (
   </tr>
 );
 
-export default ProjectPlanProposal;
+export default withTranslation()(ProjectPlanProposal);

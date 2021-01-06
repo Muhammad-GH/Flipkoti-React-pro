@@ -23,42 +23,64 @@ class InvoiceListing extends Component {
   };
 
   componentDidMount = async () => {
-    this.loadResources();
-    this.loadConfig();
+    this._isMounted = true;
+    this.axiosCancelSource = axios.CancelToken.source();
+
+    this.loadResources(this.axiosCancelSource);
+    this.loadConfig(this.axiosCancelSource);
   };
 
-  loadConfig = async () => {
+  componentWillUnmount() {
+    this._isMounted = false;
+    this.axiosCancelSource.cancel();
+  }
+
+  loadConfig = async (axiosCancelSource) => {
     const token = await localStorage.getItem("token");
     axios
       .get(`${url}/api/config/currency`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        cancelToken: axiosCancelSource.token,
       })
       .then((result) => {
-        const { left, right } = result.data;
-        this.setState({ left, right });
+        if (this._isMounted) {
+          const { left, right } = result.data;
+          this.setState({ left, right });
+        }
       })
       .catch((err) => {
-        console.log(err);
+        if (axios.isCancel(err)) {
+          console.log("Request canceled", err.message);
+        } else {
+          console.log(err.response);
+        }
       });
   };
 
-  loadResources = async () => {
+  loadResources = async (axiosCancelSource) => {
     const token = await localStorage.getItem("token");
     axios
       .get(`${url}/api/invoice/get`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        cancelToken: axiosCancelSource.token,
       })
       .then((result) => {
-        const { data } = result.data;
-        this.feeds_search = data;
-        this.setState({ resources: data });
+        if (this._isMounted) {
+          const { data } = result.data;
+          this.feeds_search = data;
+          this.setState({ resources: data });
+        }
       })
       .catch((err) => {
-        console.log(err.response);
+        if (axios.isCancel(err)) {
+          console.log("Request canceled", err.message);
+        } else {
+          console.log(err.response);
+        }
       });
   };
 
@@ -85,7 +107,6 @@ class InvoiceListing extends Component {
         },
       })
       .then((result) => {
-        this.setState({ pdf: result.data });
         window.open(
           `${url}/images/marketplace/invoice/pdf/${result.data}`,
           "_blank"
@@ -96,62 +117,86 @@ class InvoiceListing extends Component {
       });
   };
 
-  sendPDF = (id) => {
-    this.downloadPDF(id);
+  sendPDF = async (id) => {
+    const token = await localStorage.getItem("token");
+    axios
+      .get(`${url}/api/invoice/download/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      .then((result) => {
+        this.setState({ pdf: result.data });
+      })
+      .catch((err) => {
+        console.log(err.response);
+      });
   };
 
   render() {
     const { t, i18n } = this.props;
 
-    const items = this.state.resources.filter((data) => {
-      if (this.state.search == null) return data;
-      else if (data.email.includes(this.state.search)) {
-        return data;
-      }
-    });
+    const items =
+      typeof this.state.resources !== "undefined"
+        ? this.state.resources.filter((data) => {
+            if (this.state.search == null) return data;
+            else if (
+              data.email.includes(this.state.search) ||
+              data.invoice_names
+                .toLowerCase()
+                .includes(this.state.search.toLowerCase())
+            ) {
+              return data;
+            }
+          })
+        : [];
 
-    const resource = items.map((resource, index) => (
-      <tr key={index}>
-        <td style={{ width: "50px" }}>
-          <div className="form-check">
-            <input
-              type="checkbox"
-              className="form-check-input"
-              id={`check2${index}`}
-            />
-            <label
-              className="form-check-label"
-              htmlFor={`check2${index}`}
-            ></label>
-          </div>
-        </td>
-        <td>{resource.invoice_number}</td>
-        <td>{resource.acc_no}</td>
-        <td>{resource.email}</td>
-        <td>{resource.invoice_names}</td>
-        <td>{resource.date}</td>
-        <td>
-          {this.state.left} {resource.total} {this.state.right}
-        </td>
-        <td>
-          <button
-            onClick={() => this.downloadPDF(resource.id)}
-            className="btn btn-dark"
-            style={{ marginRight: "10px" }}
-          >
-            <i className="icon-attachment"></i>Download
-          </button>
-          <button
-            onClick={() => this.sendPDF(resource.id)}
-            className="btn btn-light"
-            data-toggle="modal"
-            data-target="#send-invoice"
-          >
-            <i className="icon-attachment"></i>Send
-          </button>
-        </td>
-      </tr>
-    ));
+    const resource = items
+      ? items.map((resource, index) => (
+          <tr key={index}>
+            <td style={{ width: "50px" }}>
+              <div className="form-check">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  id={`check2${index}`}
+                />
+                <label
+                  className="form-check-label"
+                  htmlFor={`check2${index}`}
+                ></label>
+              </div>
+            </td>
+            <td>{resource.invoice_number}</td>
+            <td>{resource.invoice_names}</td>
+            <td>{resource.acc_no}</td>
+            <td>{resource.client_type}</td>
+            <td>{resource.email}</td>
+            <td>{resource.date}</td>
+            {/* <td>{resource.agreement_names}</td> */}
+            <td>
+              {this.state.left} {resource.total} {this.state.right}
+            </td>
+            <td>
+              <button
+                onClick={() => this.downloadPDF(resource.id)}
+                className="btn btn-dark"
+                style={{ marginRight: "10px" }}
+              >
+                <i className="icon-attachment"></i>Download
+              </button>
+              <button
+                onClick={() => this.sendPDF(resource.id)}
+                className="btn btn-light"
+                data-toggle="modal"
+                data-target="#send-invoice"
+              >
+                <i className="icon-attachment"></i>Send
+              </button>
+            </td>
+          </tr>
+        ))
+      : [];
 
     return (
       <div>
@@ -159,9 +204,13 @@ class InvoiceListing extends Component {
         <div className="sidebar-toggle"></div>
         <nav aria-label="breadcrumb">
           <ol className="breadcrumb">
-            <li className="breadcrumb-item active" aria-current="page">
+            <Link
+              to="/business-dashboard"
+              className="breadcrumb-item active"
+              aria-current="page"
+            >
               {t("mycustomer.heading")}
-            </li>
+            </Link>
             <li className="breadcrumb-item active" aria-current="page">
               {t("invoice.heading")}
             </li>
@@ -190,7 +239,9 @@ class InvoiceListing extends Component {
                       </div>
                       <div className="col-lg-5 col-md-6">
                         <div className="form-group">
-                          <label htmlFor="client">{t("invoice.client")}</label>
+                          <label htmlFor="client">
+                            {`${t("invoice.client")} / ${t("invoice.name")}`}
+                          </label>
                           <input
                             id="client"
                             onChange={this.searchSpace}
@@ -231,9 +282,10 @@ class InvoiceListing extends Component {
                             </div>
                           </th>
                           <th>{t("invoice.invoice")} #</th>
-                          <th>{t("invoice.account")} #</th>
-                          <th>{t("account.email")}</th>
                           <th>{t("myproposal.prop_name")}</th>
+                          <th>{t("invoice.account")} #</th>
+                          <th>{t("c_material_list.listing.type")} </th>
+                          <th>{t("account.email")}</th>
                           <th>{t("myproposal.date")}</th>
                           <th>{t("invoice.total")}</th>
                         </tr>
@@ -241,7 +293,6 @@ class InvoiceListing extends Component {
                       <tbody> {resource} </tbody>
                     </table>
                   </div>
-
                   <SendInvoice pdf={this.state.pdf} />
                 </div>
               </div>

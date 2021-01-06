@@ -30,14 +30,15 @@ $.fn.multiSelect = function (options) {
 
     optionEl.on("click", function () {
       $(this).toggleClass("selected-option");
-
       selectedEl.empty();
       let selectedVal = [];
+      let currentElem = null;
       listEl.find(".selected-option").each(function () {
         var $this = $(this),
           span = $("<span></span>").text($this.text());
 
         span.appendTo(selectedEl);
+
         if ($this.text() === "Custom") {
           $("#custom-message1").slideDown();
         } else if ($this.text() === "Custom 1") {
@@ -46,11 +47,80 @@ $.fn.multiSelect = function (options) {
           $("#custom-message1").hide();
           $("#custom-message2").hide();
         }
+        currentElem = $this.attr("data-val");
         selectedVal.push($this.attr("data-val"));
       });
 
       if (inputEl.length > 0) {
         inputEl.val(selectedVal.join(","));
+
+        if (wrap.attr("id") === "legal-agreement") {
+          if (selectedVal[0] === "Timber") {
+            var elementExists = document.getElementById("klon-tim");
+
+            if (elementExists === null) {
+              // get the last DIV which ID starts with ^= "klon"
+              var $div = $('div[id^="klon"]:last');
+
+              // Check if a value exists in the fruits array
+              // Clone it and assign the new ID (i.e: from num 4 to ID "klon4")
+              var $klon = $div.clone().prop("id", "klon-tim");
+
+              // Finally insert $klon wherever you want
+              $div.after($klon);
+            }
+          } else if (selectedVal[0] !== "Timber") {
+            $('div[id="klon-tim"]').remove();
+          }
+          if (
+            selectedVal[0] === "Electricity" ||
+            selectedVal[1] === "Electricity"
+          ) {
+            var elementExists1 = document.getElementById("klon-elec");
+
+            if (elementExists1 === null) {
+              // get the last DIV which ID starts with ^= "klon"
+              var $div1 = $('div[id^="klon"]:last');
+
+              // Check if a value exists in the fruits array
+              // Clone it and assign the new ID (i.e: from num 4 to ID "klon4")
+              var $klon1 = $div1.clone().prop("id", "klon-elec");
+
+              // Finally insert $klon wherever you want
+              $div1.after($klon1);
+            }
+          } else if (
+            selectedVal[0] !== "Electricity" ||
+            selectedVal[1] !== "Electricity"
+          ) {
+            $('div[id="klon-elec"]').remove();
+          }
+          if (
+            selectedVal[0] === "Plumbing" ||
+            selectedVal[1] === "Plumbing" ||
+            selectedVal[2] === "Plumbing"
+          ) {
+            var elementExists2 = document.getElementById("klon-plum");
+
+            if (elementExists2 === null) {
+              // get the last DIV which ID starts with ^= "klon"
+              var $div2 = $('div[id^="klon"]:last');
+
+              // Check if a value exists in the fruits array
+              // Clone it and assign the new ID (i.e: from num 4 to ID "klon4")
+              var $klon2 = $div2.clone().prop("id", "klon-plum");
+
+              // Finally insert $klon wherever you want
+              $div2.after($klon2);
+            }
+          } else if (
+            selectedVal[0] !== "Plumbing" ||
+            selectedVal[1] !== "Plumbing" ||
+            selectedVal[2] !== "Plumbing"
+          ) {
+            $('div[id="klon-plum"]').remove();
+          }
+        }
       }
     });
   });

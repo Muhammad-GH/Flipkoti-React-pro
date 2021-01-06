@@ -9,73 +9,118 @@ import { withTranslation } from "react-i18next";
 class BusinessProposal extends Component {
   state = {
     feeds: [],
+    drafts: [],
     notification_bid_id: 0,
     notification_sender_id: 0,
-    drafts: [],
     proposal_client_id: 0,
     proposal_request_id: 0,
     draft: "",
   };
 
-  componentDidMount = () => {
-    this.loadNotif();
-    this.loadDrafts();
+  componentDidMount = async () => {
+    this._isMounted = true;
+    this.axiosCancelSource = axios.CancelToken.source();
+
+    this.loadNotif(this.axiosCancelSource);
+    this.loadDrafts(this.axiosCancelSource);
   };
 
-  loadNotif = async () => {
+  componentWillUnmount() {
+    this._isMounted = false;
+    this.axiosCancelSource.cancel();
+  }
+
+  loadNotif = async (axiosCancelSource) => {
     const token = await localStorage.getItem("token");
-    const response = await axios.get(`${url}/api/contracts`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    if (response.status === 200) {
-      this.setState({ feeds: response.data.data });
-    }
+    axios
+      .get(`${url}/api/contracts`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        cancelToken: axiosCancelSource.token,
+      })
+      .then((result) => {
+        if (this._isMounted) {
+          this.setState({ feeds: result.data.data });
+        }
+      })
+      .catch((err) => {
+        if (axios.isCancel(err)) {
+          console.log("Request canceled", err.message);
+        } else {
+          console.log(err.response);
+        }
+      });
   };
 
-  loadDrafts = async () => {
+  loadDrafts = async (axiosCancelSource) => {
     const token = await localStorage.getItem("token");
-    const response = await axios.get(`${url}/api/proposal/get/drafts`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    if (response.status === 200) {
-      this.setState({ drafts: response.data });
-    }
+    axios
+      .get(`${url}/api/proposal/get/drafts`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        cancelToken: axiosCancelSource.token,
+      })
+      .then((result) => {
+        if (this._isMounted) {
+          this.setState({ drafts: result.data });
+        }
+      })
+      .catch((err) => {
+        if (axios.isCancel(err)) {
+          console.log("Request canceled", err.message);
+        } else {
+          console.log(err.response);
+        }
+      });
   };
 
   handleNameChange = (e) => {
-    const { selectedIndex } = e.target.options;
-    const { feeds } = this.state;
-    const { notification_bid_id, notification_sender_id } = feeds[
-      selectedIndex - 1
-    ];
-    this.setState({ notification_bid_id, notification_sender_id });
+    if (e.target.value !== "--Select--") {
+      const { selectedIndex } = e.target.options;
+      const { feeds } = this.state;
+      const { notification_bid_id, notification_sender_id } = feeds[
+        selectedIndex - 1
+      ];
+      this.setState({ notification_bid_id, notification_sender_id });
+    }
   };
 
   handleNameChange1 = (e) => {
-    const { selectedIndex } = e.target.options;
-    const { drafts } = this.state;
-    const { proposal_client_id, proposal_request_id, draft } = drafts[
-      selectedIndex - 1
-    ];
-    this.setState({ proposal_client_id, proposal_request_id, draft });
+    if (e.target.value !== "--Select--") {
+      const { selectedIndex } = e.target.options;
+      const { drafts } = this.state;
+      const { proposal_client_id, proposal_request_id, draft } = drafts[
+        selectedIndex - 1
+      ];
+      this.setState({ proposal_client_id, proposal_request_id, draft });
+    }
   };
 
   render() {
     const { t, i18n } = this.props;
+
     return (
       <div>
         <Header active={"bussiness"} />
         <div className="sidebar-toggle"></div>
         <nav aria-label="breadcrumb">
           <ol className="breadcrumb">
-            <li className="breadcrumb-item ">{t("mycustomer.heading")}</li>
-            <li className="breadcrumb-item ">
+            <Link
+              to="/business-dashboard"
+              className="breadcrumb-item active"
+              aria-current="page"
+            >
+              {t("mycustomer.heading")}
+            </Link>
+            <Link
+              to="/proposal-listing"
+              className="breadcrumb-item active"
+              aria-current="page"
+            >
               {t("b_sidebar.proposal.proposal")}
-            </li>
+            </Link>
             <li className="breadcrumb-item active" aria-current="page">
               {t("c_material_list.listing.create")}
             </li>
@@ -136,32 +181,38 @@ class BusinessProposal extends Component {
                                   className="form-control"
                                 >
                                   <option>--Select--</option>
-                                  {this.state.feeds.map(
-                                    (
-                                      {
-                                        notification_status,
-                                        notification_message,
-                                      },
-                                      index
-                                    ) =>
-                                      notification_status === 0 ? (
-                                        <option>{notification_message}</option>
-                                      ) : null
-                                  )}
-                                  {/* <option>proposal title, work title</option>
-                                <option>proposal title, work title</option>
-                                <option>proposal title, work title</option> */}
+                                  {this.state.feeds
+                                    ? this.state.feeds.map(
+                                        (
+                                          {
+                                            notification_status,
+                                            tender_title,
+                                            bid_status,
+                                            sender_isLogged,
+                                          },
+                                          index
+                                        ) =>
+                                          bid_status === 3 &&
+                                          !sender_isLogged ? (
+                                            <option>{tender_title}</option>
+                                          ) : null
+                                      )
+                                    : []}
                                 </select>
                               </div>
                               <div className="col-md-4 mt-md-0 mt-4">
-                                <Link
-                                  className="btn btn-blue"
-                                  to={{
-                                    pathname: `/business-propsal-create/${this.state.notification_bid_id}/${this.state.notification_sender_id}`,
-                                  }}
-                                >
-                                  Create Proposal
-                                </Link>
+                                {this.state.notification_bid_id > 0 ||
+                                this.state.notification_sender_id > 0 ? (
+                                  <Link
+                                    className="btn btn-blue"
+                                    to={{
+                                      pathname: `/business-propsal-create/${this.state.notification_bid_id}/${this.state.notification_sender_id}`,
+                                    }}
+                                  >
+                                    Create Proposal
+                                  </Link>
+                                ) : null}
+
                                 {/* <button type="submit" className="btn btn-blue">
                                 Create Proposal
                               </button> */}
@@ -191,30 +242,33 @@ class BusinessProposal extends Component {
                                   className="form-control"
                                 >
                                   <option>--Select--</option>
-                                  {this.state.drafts.map(
-                                    (
-                                      {
-                                        proposal_request_id,
-                                        proposal_client_type,
-                                      },
-                                      index
-                                    ) => (
-                                      <option>
-                                        {`${proposal_request_id}, ${proposal_client_type}`}
-                                      </option>
-                                    )
-                                  )}
+                                  {typeof this.state.drafts !== "string"
+                                    ? this.state.drafts.map(
+                                        (
+                                          {
+                                            proposal_request_id,
+                                            proposal_client_type,
+                                            proposal_names,
+                                          },
+                                          index
+                                        ) => (
+                                          <option>{`${proposal_names}`}</option>
+                                        )
+                                      )
+                                    : []}
                                 </select>
                               </div>
                               <div className="col-md-4 mt-md-0 mt-4">
-                                <Link
-                                  className="btn btn-blue"
-                                  to={{
-                                    pathname: `/business-propsal-create/${this.state.proposal_request_id}/${this.state.proposal_client_id}/${this.state.draft}`,
-                                  }}
-                                >
-                                  Update Proposal
-                                </Link>
+                                {this.state.proposal_request_id > 0 ? (
+                                  <Link
+                                    className="btn btn-blue"
+                                    to={{
+                                      pathname: `/business-propsal-create/${this.state.proposal_request_id}/${this.state.proposal_client_id}/${this.state.draft}`,
+                                    }}
+                                  >
+                                    Update Proposal
+                                  </Link>
+                                ) : null}
                               </div>
                             </div>
                           </div>

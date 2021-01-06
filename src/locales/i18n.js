@@ -14,11 +14,10 @@ const resources = {
 
 // const lng = localStorage.getItem('_lng')
 i18n
-  .use(LanguageDetector)
   .use(initReactI18next) // passes i18n down to react-i18next
   .init({
     resources,
-    lng: localStorage.getItem("_lng"),
+    lng: localStorage.getItem("_lng") || "fi",
     fallbackLng: "fi",
 
     // keySeparator: false, // we do not use keys in form messages.welcome

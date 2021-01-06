@@ -19,6 +19,7 @@ export default class SendInvoice extends Component {
     const data = new FormData();
     data.set("email", this.state.email);
     data.set("invoice", this.props.pdf);
+
     axios
       .post(`${url}/api/invoice/send`, data, {
         headers: {

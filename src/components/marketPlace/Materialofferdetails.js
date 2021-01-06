@@ -21,10 +21,13 @@ class Materialofferdetails extends Component {
       tb_quote: 0.0,
       tb_description: null,
       tb_quantity: 0.0,
-      tb_city_id: 1,
+      tb_city_id: 0,
+      tb_city_id_err: false,
       tb_delivery_type: null,
+      tb_delivery_type_err: false,
       tb_delivery_charges: 0.0,
       tb_warrenty: 0,
+      warrenty_err: false,
       tb_warrenty_type: "Days",
       attachment: null,
       featured_image: null,
@@ -40,6 +43,7 @@ class Materialofferdetails extends Component {
       left: null,
       right: null,
     };
+    this.myRef = React.createRef();
   }
 
   componentDidMount = () => {
@@ -92,6 +96,29 @@ class Materialofferdetails extends Component {
 
   handleSubmit = async (event) => {
     event.preventDefault();
+
+    this.setState({
+      warrenty_err: false,
+      tb_city_id_err: false,
+      tb_delivery_type_err: false,
+    });
+
+    if (
+      this.state.tb_warrenty == "--Select--" ||
+      this.state.tb_warrenty == null
+    ) {
+      return this.setState({ warrenty_err: true });
+    }
+    if (this.state.tb_city_id == "--Select--" || this.state.tb_city_id == 0) {
+      return this.setState({ tb_city_id_err: true });
+    }
+    if (
+      this.state.tb_delivery_type == "--Select--" ||
+      this.state.tb_delivery_type == null
+    ) {
+      return this.setState({ tb_delivery_type_err: true });
+    }
+
     const token = await localStorage.getItem("token");
     const data = new FormData();
     data.set("tb_tender_id", this.props.match.params.id);
@@ -104,7 +131,7 @@ class Materialofferdetails extends Component {
     data.set("tb_warrenty", this.state.tb_warrenty);
     data.set("tb_warrenty_type", this.state.tb_warrenty_type);
     data.append("attachment", this.state.attachment);
-    data.append("featured_image", this.state.featured_image);
+    // data.append("featured_image", this.state.featured_image);
 
     axios
       .post(`${url}/api/bid/create`, data, {
@@ -114,11 +141,21 @@ class Materialofferdetails extends Component {
       })
       .then((result) => {
         console.log(result);
-
-        this.setState({ show_msg: true });
+        this.myRef.current.scrollTo(0, 0);
+        this.setState({
+          show_msg: true,
+          tb_quote: 0,
+          tb_quantity: 0,
+          tb_delivery_charges: 0,
+          tb_warrenty: 0,
+          tb_description: "",
+          attachment: null,
+          loaded1: 0,
+        });
       })
       .catch((err) => {
         console.log(err.response.data);
+        this.myRef.current.scrollTo(0, 0);
         this.setState({ show_errors: true });
       });
   };
@@ -154,7 +191,12 @@ class Materialofferdetails extends Component {
     if (
       event.target.files[0].name.split(".").pop() == "pdf" ||
       event.target.files[0].name.split(".").pop() == "docx" ||
-      event.target.files[0].name.split(".").pop() == "doc"
+      event.target.files[0].name.split(".").pop() == "doc" ||
+      event.target.files[0].name.split(".").pop() == "jpeg" ||
+      event.target.files[0].name.split(".").pop() == "png" ||
+      event.target.files[0].name.split(".").pop() == "jpg" ||
+      event.target.files[0].name.split(".").pop() == "gif" ||
+      event.target.files[0].name.split(".").pop() == "svg"
     ) {
       this.setState({ attachment: event.target.files[0], loaded1: 50 });
       if (this.state.loaded1 <= 100) {
@@ -170,34 +212,34 @@ class Materialofferdetails extends Component {
       return alert("File type not supported");
     }
   };
-  handleChange10 = (event) => {
-    this.setState({ featured_image: null });
-    if (
-      event.target.files[0].name.split(".").pop() == "jpeg" ||
-      event.target.files[0].name.split(".").pop() == "png" ||
-      event.target.files[0].name.split(".").pop() == "jpg" ||
-      event.target.files[0].name.split(".").pop() == "gif" ||
-      event.target.files[0].name.split(".").pop() == "svg"
-    ) {
-      this.setState({
-        featured_image: event.target.files[0],
-        loaded: 50,
-        featured_image_err: false,
-        img_preview: URL.createObjectURL(event.target.files[0]),
-      });
-      if (this.state.loaded <= 100) {
-        setTimeout(
-          function () {
-            this.setState({ loaded: 100 });
-          }.bind(this),
-          2000
-        ); // wait 2 seconds, then reset to false
-      }
-    } else {
-      this.setState({ featured_image: null });
-      alert("File type not supported");
-    }
-  };
+  // handleChange10 = (event) => {
+  //   this.setState({ featured_image: null });
+  //   if (
+  //     event.target.files[0].name.split(".").pop() == "jpeg" ||
+  //     event.target.files[0].name.split(".").pop() == "png" ||
+  //     event.target.files[0].name.split(".").pop() == "jpg" ||
+  //     event.target.files[0].name.split(".").pop() == "gif" ||
+  //     event.target.files[0].name.split(".").pop() == "svg"
+  //   ) {
+  //     this.setState({
+  //       featured_image: event.target.files[0],
+  //       loaded: 50,
+  //       featured_image_err: false,
+  //       img_preview: URL.createObjectURL(event.target.files[0]),
+  //     });
+  //     if (this.state.loaded <= 100) {
+  //       setTimeout(
+  //         function () {
+  //           this.setState({ loaded: 100 });
+  //         }.bind(this),
+  //         2000
+  //       ); // wait 2 seconds, then reset to false
+  //     }
+  //   } else {
+  //     this.setState({ featured_image: null });
+  //     alert("File type not supported");
+  //   }
+  // };
 
   save = async (id) => {
     const token = await localStorage.getItem("token");
@@ -266,7 +308,7 @@ class Materialofferdetails extends Component {
     if (this.state.show_errors === true) {
       alert = (
         <Alert variant="danger" style={{ fontSize: "13px" }}>
-          {t("success.all_fields_are_required")}
+          {t("success.bid_once")}
         </Alert>
       );
     }
@@ -299,6 +341,8 @@ class Materialofferdetails extends Component {
               class="form-control"
               type="text"
               placeholder="800"
+              required
+              value={this.state.tb_delivery_charges}
             />
           </div>
           <div class="form-group">
@@ -310,17 +354,28 @@ class Materialofferdetails extends Component {
                 class="form-control"
                 type="text"
                 placeholder="20"
+                required
+                value={this.state.tb_warrenty}
               />
               <select onChange={this.handleChange7} class="form-control">
                 <option>--Select--</option>
                 <option>Days</option>
                 <option>Month</option>
               </select>
+              <p style={{ color: "#eb516d " }}>
+                {this.state.warrenty_err === true
+                  ? "Warrenty is required"
+                  : null}
+              </p>
             </div>
           </div>
         </div>
       );
     }
+
+    let tender_delivery_type_cost = this.state.details.tender_delivery_type_cost
+      ? this.state.details.tender_delivery_type_cost
+      : [];
 
     return (
       <div>
@@ -339,7 +394,7 @@ class Materialofferdetails extends Component {
         </nav>
         <div className="main-content">
           <Sidebar />
-          <div class="page-content">
+          <div ref={this.myRef} class="page-content">
             {alert ? alert : null}
             <div class="container-fluid">
               <h3 class="head3">
@@ -386,18 +441,22 @@ class Materialofferdetails extends Component {
                             {this.state.details.category}
                           </a>
                         </p>
-                        <a
-                          href={
-                            url +
-                            "/images/marketplace/material/" +
-                            this.state.details.tender_attachment
-                          }
-                          target="_blank"
-                          class="attachment"
-                        >
-                          <i class="icon-paperclip"></i>
-                          {this.state.details.tender_attachment}
-                        </a>
+
+                        {this.state.details.tender_attachment ? (
+                          <a
+                            href={
+                              url +
+                              "/images/marketplace/material/" +
+                              this.state.details.tender_attachment
+                            }
+                            target="_blank"
+                            class="attachment"
+                          >
+                            <i class="icon-paperclip"></i>
+                            {this.state.details.tender_attachment}
+                          </a>
+                        ) : null}
+
                         <table>
                           <tr>
                             <th>
@@ -441,7 +500,10 @@ class Materialofferdetails extends Component {
                             <tr>
                               <th>{t("list_details.delivery")}</th>
                               <td>
-                                {this.state.details.tender_delivery_type_cost}
+                                {tender_delivery_type_cost.map(
+                                  (t) =>
+                                    `${t.type} : ${this.state.left} ${t.cost} ${this.state.right} | `
+                                )}
                               </td>
                             </tr>
                           ) : (
@@ -466,119 +528,140 @@ class Materialofferdetails extends Component {
                     </div>
                     <div class="col-md">
                       <div class="details-form">
-                        <form onSubmit={this.handleSubmit}>
-                          <div class="form-group">
-                            <div class="row align-items-center">
-                              <div class="col-5">
-                                <label class="d-flex ">
-                                  {t("list_details.your_quote")}
-                                </label>
-                              </div>
-                              <div class="col-7">
-                                <label class="d-flex align-items-center">
-                                  {this.state.left}
-                                  {this.state.right}/
-                                  {this.state.details.tender_unit}{" "}
-                                  <input
-                                    onChange={this.handleChange1}
-                                    class="form-control"
-                                    type="text"
-                                  />
-                                </label>
-                              </div>
-                            </div>
+                        {this.state.details.isUser ? (
+                          <div>
+                            <h4>Cannot bid on your own job</h4>
                           </div>
-                          <div class="form-group">
-                            <div class="row align-items-center">
-                              <div class="col-5">
-                                <label class="d-flex">
-                                  {t("list_details.quantity")}
-                                </label>
-                              </div>
-                              <div class="col-7">
-                                <label class="d-flex align-items-center">
-                                  {this.state.details.tender_unit}{" "}
-                                  <input
-                                    onChange={this.handleChange2}
-                                    class="form-control"
-                                    type="text"
-                                  />
-                                </label>
+                        ) : (
+                          <form onSubmit={this.handleSubmit}>
+                            <div class="form-group">
+                              <div class="row align-items-center">
+                                <div class="col-5">
+                                  <label class="d-flex ">
+                                    {t("list_details.your_quote")}
+                                  </label>
+                                </div>
+                                <div class="col-7">
+                                  <label class="d-flex align-items-center">
+                                    {`${this.state.left}${this.state.right}/${this.state.details.tender_unit}`}
+                                    <input
+                                      onChange={this.handleChange1}
+                                      class="form-control"
+                                      type="number"
+                                      required
+                                      value={this.state.tb_quote}
+                                    />
+                                  </label>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          <div class="form-group">
-                            <label for="shipping-from">
-                              {t("list_details.shipping_from")}
-                            </label>
-                            <select
-                              onChange={this.handleChange3}
-                              id="shipping-from"
-                              class="form-control"
-                            >
-                              <option>--Select--</option>
-                              {this.state.cities.map(
-                                ({ state_identifier }, index) => {
-                                  if (state_identifier !== undefined) {
-                                    return (
-                                      <option value={index}>
-                                        {state_identifier}
-                                      </option>
-                                    );
-                                  }
-                                }
-                              )}
-                            </select>
-                          </div>
-                          <div class="form-group">
-                            <label for="delivery-type">
-                              {t("list_details.delivery_type")}
-                            </label>
-                            <select
-                              onChange={this.handleChange4}
-                              id="delivery-type"
-                              class="form-control"
-                            >
-                              <option>--Select--</option>
-                              <option>Road</option>
-                              <option>Flight</option>
-                              <option>Ship</option>
-                            </select>
-                          </div>
-
-                          {chunk ? chunk : null}
-                          <div class="form-group">
-                            <label for="message">
-                              {t("list_details.message")}:
-                            </label>
-                            <textarea
-                              onChange={this.handleChange8}
-                              id="message"
-                              class="form-control"
-                            ></textarea>
-                          </div>
-                          <div class="form-group">
-                            <label for="attachment">
-                              {t("c_material_list.request.attachment")}
-                            </label>
-                            <div class="file-select">
-                              <input
-                                onChange={this.handleChange9}
-                                name="attachment"
-                                type="file"
-                                id="attachment"
-                              />
-                              <label for="attachment">
-                                <img src={File} />
-                                <span class="status">Upload status</span>
-                                <ProgressBar now={this.state.loaded1} />
+                            <div class="form-group">
+                              <div class="row align-items-center">
+                                <div class="col-5">
+                                  <label class="d-flex">
+                                    {t("list_details.quantity")}
+                                  </label>
+                                </div>
+                                <div class="col-7">
+                                  <label class="d-flex align-items-center">
+                                    {this.state.details.tender_unit}{" "}
+                                    <input
+                                      onChange={this.handleChange2}
+                                      class="form-control"
+                                      type="number"
+                                      required
+                                      value={this.state.tb_quantity}
+                                    />
+                                  </label>
+                                </div>
+                              </div>
+                            </div>
+                            <div class="form-group">
+                              <label for="shipping-from">
+                                {t("list_details.shipping_from")}
                               </label>
-                              <small class="form-text text-muted">
-                                {t("c_material_list.request.attachment_text")}
-                              </small>
+                              <select
+                                onChange={this.handleChange3}
+                                id="shipping-from"
+                                class="form-control"
+                              >
+                                <option>--Select--</option>
+                                {this.state.cities.map(
+                                  ({ state_identifier, state_id }, index) => {
+                                    if (state_identifier !== undefined) {
+                                      return (
+                                        <option value={state_id}>
+                                          {state_identifier}
+                                        </option>
+                                      );
+                                    }
+                                  }
+                                )}
+                              </select>
+                              <p style={{ color: "#eb516d " }}>
+                                {this.state.tb_city_id_err === true
+                                  ? "City is required"
+                                  : null}
+                              </p>
                             </div>
-                          </div>
-                          <div class="form-group">
+                            <div class="form-group">
+                              <label for="delivery-type">
+                                {t("list_details.delivery_type")}
+                              </label>
+                              <select
+                                onChange={this.handleChange4}
+                                id="delivery-type"
+                                class="form-control"
+                                value={this.state.tb_delivery_type}
+                              >
+                                <option>--Select--</option>
+                                <option>Road</option>
+                                <option>Flight</option>
+                                <option>Ship</option>
+                              </select>
+                              <p style={{ color: "#eb516d " }}>
+                                {this.state.tb_delivery_type_err === true
+                                  ? "Delivery type is required"
+                                  : null}
+                              </p>
+                            </div>
+
+                            {chunk ? chunk : null}
+                            <div class="form-group">
+                              <label for="message">
+                                {t("list_details.message")}:
+                              </label>
+                              <textarea
+                                onChange={this.handleChange8}
+                                id="message"
+                                name="tb_description"
+                                class="form-control"
+                                required
+                                value={this.state.tb_description}
+                              ></textarea>
+                            </div>
+                            <div class="form-group">
+                              <label for="attachment">
+                                {t("c_material_list.request.attachment")}
+                              </label>
+                              <div class="file-select">
+                                <input
+                                  onChange={this.handleChange9}
+                                  name="attachment"
+                                  type="file"
+                                  id="attachment"
+                                />
+                                <label for="attachment">
+                                  <img src={File} />
+                                  <span class="status">Upload status</span>
+                                  <ProgressBar now={this.state.loaded1} />
+                                </label>
+                                <small class="form-text text-muted">
+                                  Max 2 mb pdf, doc, jpeg, png, jpg, gif, svg
+                                </small>
+                              </div>
+                            </div>
+                            {/* <div class="form-group">
                             <label for="main">{t("list_details.image")}</label>
                             <div class="file-select">
                               <input
@@ -602,47 +685,48 @@ class Materialofferdetails extends Component {
                                 jpeg, png, jpg, gif, svg
                               </small>
                             </div>
-                          </div>
-                          <div class="form-group">
-                            <div class="form-check">
-                              <input
-                                type="checkbox"
-                                class="form-check-input"
-                                id="terms"
-                              />
-                              <label class="form-check-label" for="terms">
-                                {t("list_details.i_agree_all")}{" "}
-                                <a href="#">
-                                  {t("list_details.terms_of_service")}
-                                </a>
-                              </label>
+                          </div> */}
+                            <div class="form-group">
+                              <div class="form-check">
+                                <input
+                                  type="checkbox"
+                                  class="form-check-input"
+                                  id="terms"
+                                />
+                                <label class="form-check-label" for="terms">
+                                  {t("list_details.i_agree_all")}{" "}
+                                  <a href="#">
+                                    {t("list_details.terms_of_service")}
+                                  </a>
+                                </label>
+                              </div>
                             </div>
-                          </div>
-                          <button class="btn btn-secondary" type="submit">
-                            Submit your bid
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              this.save(this.state.details.tender_id);
-                            }}
-                            class="btn btn-light"
-                            type="submit"
-                          >
-                            <i
-                              class={
-                                classname(this.state.details.tender_id).filter(
-                                  function (el) {
+                            <button class="btn btn-secondary" type="submit">
+                              Submit your bid
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                this.save(this.state.details.tender_id);
+                              }}
+                              class="btn btn-light"
+                              type="submit"
+                            >
+                              <i
+                                class={
+                                  classname(
+                                    this.state.details.tender_id
+                                  ).filter(function (el) {
                                     return el;
-                                  }
-                                ) == "icon-heart"
-                                  ? "icon-heart"
-                                  : "icon-heart-o"
-                              }
-                            ></i>
-                            Save this job
-                          </button>
-                        </form>
+                                  }) == "icon-heart"
+                                    ? "icon-heart"
+                                    : "icon-heart-o"
+                                }
+                              ></i>
+                              Save this job
+                            </button>
+                          </form>
+                        )}
                       </div>
                     </div>
                   </div>

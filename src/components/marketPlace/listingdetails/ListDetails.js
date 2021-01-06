@@ -7,8 +7,10 @@ import { Helper, url } from "../../../helper/helper";
 import Accept from "./Modals/Accept";
 import Decline from "./Modals/Decline";
 import Carousel from "react-bootstrap/Carousel";
-import Alert from "react-bootstrap/Alert";
+import { Link } from "react-router-dom";
+import moment from "moment";
 import Spinner from "react-bootstrap/Spinner";
+import { withTranslation } from "react-i18next";
 
 class ListDetails extends Component {
   state = {
@@ -101,16 +103,28 @@ class ListDetails extends Component {
     }
   };
 
-  render() {
-    console.log(this.state.bids);
+  url(category) {
+    if (category === "Material") {
+      return "create-material-list";
+    }
+    if (category === "Work") {
+      return "create-work-list";
+    }
+    return null;
+  }
 
-    let alert;
+  render() {
+    const { t, i18n } = this.props;
+
+    // let alert;
     if (this.state.deleted === true) {
-      alert = (
-        <Alert variant="success" style={{ fontSize: "13px" }}>
-          Deleted
-        </Alert>
-      );
+      const { history } = this.props;
+      history.push("/feeds");
+      // alert = (
+      //   <Alert variant="success" style={{ fontSize: "13px" }}>
+      //     Deleted
+      //   </Alert>
+      // );
     }
 
     return (
@@ -120,7 +134,7 @@ class ListDetails extends Component {
         <nav aria-label="breadcrumb">
           <ol className="breadcrumb">
             <li className="breadcrumb-item active" aria-current="page">
-              Marketplace
+              {t("header.marketplace")}
             </li>
             <li className="breadcrumb-item active" aria-current="page">
               {this.state.detail.tender_category_type}{" "}
@@ -131,7 +145,7 @@ class ListDetails extends Component {
         <div className="main-content">
           <Sidebar dataFromParent={this.props.location.pathname} />
           <div className="page-content">
-            {alert ? alert : null}
+            {/* {alert ? alert : null} */}
             <div className="container-fluid">
               <h3 className="head3">
                 {this.state.detail.tender_category_type}{" "}
@@ -160,9 +174,21 @@ class ListDetails extends Component {
                         <div className="mt-2"></div>
                         <div className="details-content">
                           <div className="head">
-                            <a href="#" className="btn-edit">
-                              Edit<i className="icon-edit"></i>
-                            </a>
+                            {moment(
+                              this.state.detail.tender_expiry_date
+                            ).isBefore(moment()._d) ? null : (
+                              <Link
+                                to={{
+                                  pathname: `/${this.url(
+                                    this.state.detail.tender_category_type
+                                  )}/${this.state.detail.tender_id}`,
+                                }}
+                                className="btn-edit"
+                              >
+                                Edit<i className="icon-edit"></i>
+                              </Link>
+                            )}
+
                             <h4>{this.state.detail.tender_title}</h4>
                             <p>{this.state.detail.tender_type}</p>
                           </div>
@@ -173,24 +199,27 @@ class ListDetails extends Component {
                               {this.state.detail.category}
                             </a>
                           </p>
-                          <a
-                            href={
-                              url +
-                              "/images/marketplace/material/" +
-                              this.state.detail.tender_attachment
-                            }
-                            target="_blank"
-                            class="attachment"
-                          >
-                            <i className="icon-paperclip"></i>
-                            {this.state.detail.tender_attachment}
-                          </a>
+                          {this.state.detail.tender_attachment ? (
+                            <a
+                              href={
+                                url +
+                                "/images/marketplace/material/" +
+                                this.state.detail.tender_attachment
+                              }
+                              target="_blank"
+                              class="attachment"
+                            >
+                              <i className="icon-paperclip"></i>
+                              {this.state.detail.tender_attachment}
+                            </a>
+                          ) : null}
+
                           <table>
                             <tr>
                               <th>
                                 {this.state.detail.tender_budget
-                                  ? "Budget"
-                                  : "Quantity"}
+                                  ? t("list_details.budget")
+                                  : t("list_details.quantity")}
                               </th>
                               <td>
                                 {this.state.detail.tender_budget
@@ -201,17 +230,19 @@ class ListDetails extends Component {
                             <tr>
                               <th>
                                 {this.state.detail.tender_rate
-                                  ? "Rate"
-                                  : "Unit"}
+                                  ? t("list_details.rate")
+                                  : t("invoice.unit")}
                               </th>
                               <td>
+                                {this.state.left}
                                 {this.state.detail.tender_rate
                                   ? this.state.detail.tender_rate
                                   : this.state.detail.tender_unit}
+                                {this.state.left}
                               </td>
                             </tr>
                             <tr>
-                              <th>Location</th>
+                              <th>{t("list_details.location")}</th>
                               <td>
                                 {this.state.detail.tender_pincode}{" "}
                                 {this.state.detail.tender_city}
@@ -219,19 +250,19 @@ class ListDetails extends Component {
                             </tr>
                             {this.state.detail.extra === 2 ? (
                               <tr>
-                                <th>Work</th>
-                                <td>Included</td>
+                                <th>{t("list_details.work")}</th>
+                                <td>{t("list_details.included")}</td>
                               </tr>
                             ) : this.state.detail.extra === 1 ? (
                               <tr>
-                                <th>Material</th>
-                                <td>Included</td>
+                                <th>{t("feeds.search.material")}</th>
+                                <td>{t("list_details.included")}</td>
                               </tr>
                             ) : null}
                             <tr>
                               <th>
                                 {this.state.detail.tender_available_from
-                                  ? "Work start"
+                                  ? t("c_work_list.work_start")
                                   : null}
                               </th>
                               <td>
@@ -247,14 +278,19 @@ class ListDetails extends Component {
                     <br />
                     <br />
                     <br />
-                    <button
-                      onClick={(e) =>
-                        this.handleDelete(this.state.detail.tender_id)
-                      }
-                      className="btn btn-light"
-                    >
-                      <i className="icon-trash"></i>Delete
-                    </button>
+                    {moment(this.state.detail.tender_expiry_date).isBefore(
+                      moment()._d
+                    ) ? null : (
+                      <button
+                        onClick={(e) =>
+                          this.handleDelete(this.state.detail.tender_id)
+                        }
+                        className="btn btn-light"
+                      >
+                        <i className="icon-trash"></i>Delete
+                      </button>
+                    )}
+
                     <div class="hr mg-30"></div>
                     <h3>Bids on job</h3>
                     <div
@@ -275,10 +311,18 @@ class ListDetails extends Component {
                               <tr key={index}>
                                 <td>
                                   <div class="profile flex">
-                                    <img src={Avatar} />
+                                    <img
+                                      src={
+                                        bid.company_logo === null
+                                          ? Avatar
+                                          : url +
+                                            "/images/marketplace/company_logo/" +
+                                            bid.company_logo
+                                      }
+                                    />
                                     <div class="content">
                                       <h4>{bid.full_name}</h4>
-                                      <p>Designation/short intro</p>
+                                      <p>{bid.subtype}</p>
                                     </div>
                                   </div>
                                 </td>
@@ -293,7 +337,9 @@ class ListDetails extends Component {
                                   <Accept
                                     key={index}
                                     id={this.props.match.params.id}
-                                    avatar={Avatar}
+                                    avatar={bid.company_logo}
+                                    left={this.state.left}
+                                    right={this.state.right}
                                   />
                                   <a
                                     href="#"
@@ -336,4 +382,4 @@ class ListDetails extends Component {
   }
 }
 
-export default ListDetails;
+export default withTranslation()(ListDetails);

@@ -299,6 +299,29 @@ class BussinessSidebar extends Component {
                 </li>
               </ul>
             </li>
+
+            <li
+              className={
+                this.props.dataFromParent === "/myphases"
+                  ? "nav-item active"
+                  : this.props.dataFromParent === "/phase-list"
+                  ? "nav-item active"
+                  : "nav-item"
+              }
+            >
+              <a className="nav-link">
+                <i className="icon-edit-file"></i>
+                {t("b_sidebar.phase.phases")}
+              </a>
+              <ul className="sub-nav">
+                <li>
+                  <Link to="/myphases">{t("b_sidebar.phase.create")}</Link>
+                </li>
+                <li>
+                  <Link to="/phase-list">{t("b_sidebar.phase.listing")}</Link>
+                </li>
+              </ul>
+            </li>
           </ul>
         </div>
       </div>

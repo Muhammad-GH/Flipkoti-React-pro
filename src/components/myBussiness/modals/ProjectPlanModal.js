@@ -29,6 +29,7 @@ export default class ProjectPlanModal extends Component {
     data.set("total", this.props.data.total);
     data.set("tax_calc", this.props.data.tax_calc);
     data.set("profit_calc", this.props.data.profit_calc);
+    data.set("seperate", 0);
 
     axios
       .post(`${url}/api/pro-plan/create`, data, {
@@ -38,19 +39,21 @@ export default class ProjectPlanModal extends Component {
       })
       .then((res) => {
         this.setState({ error: false, msg: "Saved successfully!" });
-        console.log(res);
+        alert("Saved successfully");
+        // this.props.reset();
+        window.location.reload();
       })
       .catch((err) => {
         this.setState({ error: true, msg: err.response.data.error });
+        alert(err.response.data.error);
         console.log(err.response.data);
       });
   };
 
   render() {
-    if (this.state.msg) {
-      alert(this.state.msg);
-      window.location.reload();
-    }
+    // if (this.state.msg) {
+    //   alert(this.state.msg);
+    // }
     return (
       <div>
         <div

@@ -11,36 +11,102 @@ class Header extends Component {
   state = {
     loggedIn: true,
     count: 0,
+    unread: 0,
     info: [],
     notif: [],
   };
 
   componentDidMount = () => {
+    i18n.changeLanguage(this.props.i18n.language);
+    localStorage.setItem("i18nextLng", this.props.i18n.language);
+    localStorage.setItem("_lng", this.props.i18n.language);
+
+    this._isMounted = true;
+    this.axiosCancelSource = axios.CancelToken.source();
+
     this.loadToken();
-    this.loadNotif();
-    this.loadData();
+    this.loadNotif(this.axiosCancelSource);
+    this.loadUnreadNotif(this.axiosCancelSource);
+    this.loadData(this.axiosCancelSource);
   };
 
-  loadData = async () => {
+  componentWillUnmount() {
+    this._isMounted = false;
+    this.axiosCancelSource.cancel();
+  }
+
+  loadData = async (axiosCancelSource) => {
     const token = await localStorage.getItem("token");
-    const { data } = await axios.get(`${url}/api/account`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    this.setState({ info: data });
+    axios
+      .get(`${url}/api/account`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        cancelToken: axiosCancelSource.token,
+      })
+      .then(({ data }) => {
+        if (this._isMounted) {
+          this.setState({ info: data });
+        }
+      })
+      .catch((err) => {
+        if (axios.isCancel(err)) {
+          // console.log("Request canceled", err.message);
+        } else {
+          console.log(err.response);
+        }
+      });
   };
 
-  loadNotif = async () => {
+  loadNotif = async (axiosCancelSource) => {
     const token = await localStorage.getItem("token");
-    const response = await axios.get(`${url}/api/getBidsNotif`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-    if (response.status === 200) {
-      this.setState({ notif: response.data.data, count: response.data.count });
-    }
+    axios
+      .get(`${url}/api/getBidsNotif`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        cancelToken: axiosCancelSource.token,
+      })
+      .then((response) => {
+        if (this._isMounted) {
+          this.setState({
+            notif: response.data.data,
+            count: response.data.count,
+          });
+        }
+      })
+      .catch((err) => {
+        if (axios.isCancel(err)) {
+          // console.log("Request canceled", err.message);
+        } else {
+          console.log(err.response);
+        }
+      });
+  };
+
+  loadUnreadNotif = async (axiosCancelSource) => {
+    const token = await localStorage.getItem("token");
+    axios
+      .get(`${url}/api/notification/unread`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        cancelToken: axiosCancelSource.token,
+      })
+      .then((response) => {
+        if (this._isMounted) {
+          this.setState({
+            unread: response.data.data,
+          });
+        }
+      })
+      .catch((err) => {
+        if (axios.isCancel(err)) {
+          // console.log("Request canceled", err.message);
+        } else {
+          console.log(err.response);
+        }
+      });
   };
 
   readNotif = async (id) => {
@@ -56,6 +122,16 @@ class Header extends Component {
     );
   };
 
+  readNotifAll = async () => {
+    const token = await localStorage.getItem("token");
+    const response = await axios.put(`${url}/api/notification/readall`, null, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    console.log(response);
+  };
+
   loadToken = async () => {
     const token = await localStorage.getItem("token");
     if (token == null) {
@@ -66,7 +142,7 @@ class Header extends Component {
   changeLanguage = (lng) => {
     i18n.changeLanguage(lng);
     localStorage.setItem("_lng", lng);
-    // window.location.reload();
+    window.location.reload();
   };
 
   render() {
@@ -74,6 +150,145 @@ class Header extends Component {
       return <Redirect to="/" />;
     }
     const { t, i18n } = this.props;
+
+    const notif = this.state.notif
+      ? this.state.notif.map((notification, index) => (
+          <div>
+            {notification.sender_isLogged &&
+            notification.notification_type === "accept-bid" ? (
+              <Link className="dropdown-item" to="/my-contracts">
+                Submit proposal to {notification.sender}
+              </Link>
+            ) : notification.sender_isLogged &&
+              notification.notification_type === "decline-bid" ? (
+              <Link className="dropdown-item" to="/my-contracts">
+                Proposal declined by {notification.sender}
+              </Link>
+            ) : notification.sender_isLogged &&
+              notification.notification_type === "bid_made" ? (
+              <Link
+                className="dropdown-item"
+                to={{
+                  pathname: `/listing-detail/${notification.notification_bid_id}`,
+                }}
+              >
+                {notification.notification_message} by {notification.sender}
+              </Link>
+            ) : null}
+
+            {notification.sender_isLogged &&
+            notification.notification_type === "proposal_sent" ? (
+              <div>
+                {" "}
+                <Link
+                  onClick={() => this.readNotif(notification.notification_id)}
+                  className="dropdown-item"
+                  to="/my-contracts"
+                >
+                  {notification.notification_type === "accept-bid"
+                    ? `Bid accepted by ${notification.sender}`
+                    : notification.notification_type === "decline-bid"
+                    ? `Bid declined by ${notification.sender}`
+                    : null}
+                </Link>
+                <Link
+                  to={{
+                    pathname: `/proposal-listing`,
+                  }}
+                  className="dropdown-item"
+                >
+                  {notification.sender_isLogged &&
+                  notification.notification_type === "proposal_sent"
+                    ? `Proposal sent by ${notification.sender} on email`
+                    : null}
+                </Link>{" "}
+              </div>
+            ) : null}
+
+            {notification.sender_isLogged &&
+            notification.notification_type === "agreement_sent" ? (
+              <div>
+                <Link
+                  to={{
+                    pathname: `/agreement-listing`,
+                  }}
+                  className="dropdown-item"
+                >
+                  {notification.sender_isLogged &&
+                  notification.notification_type === "agreement_sent"
+                    ? `Agreement sent by ${notification.sender} on email`
+                    : null}
+                </Link>{" "}
+              </div>
+            ) : null}
+
+            {notification.sender_isLogged &&
+            notification.notification_type === "invoice_sent" ? (
+              <div>
+                <Link
+                  to={{
+                    pathname: `/invoice-list`,
+                  }}
+                  className="dropdown-item"
+                >
+                  {notification.sender_isLogged &&
+                  notification.notification_type === "invoice_sent"
+                    ? `Invoice sent by ${notification.sender} on email`
+                    : null}
+                </Link>{" "}
+              </div>
+            ) : null}
+
+            {(notification.sender_isLogged &&
+              notification.notification_type === "agreement_accepted") ||
+            notification.notification_type === "agreement_declined" ||
+            notification.notification_type === "agreement_revision" ? (
+              <div>
+                {notification.sender_isLogged &&
+                notification.notification_type === "agreement_revision" ? (
+                  <Link
+                    to={{
+                      pathname: `/agreement-listing`,
+                    }}
+                    className="dropdown-item"
+                  >
+                    {`Agreement revision by ${notification.sender} for request ${notification.notification_user_id}${notification.notification_bid_id}`}
+                  </Link>
+                ) : notification.sender_isLogged &&
+                  notification.notification_type !== "agreement_revision" ? (
+                  <Link className="dropdown-item">
+                    {`Agreement ${notification.notification_message} by ${notification.sender}`}
+                  </Link>
+                ) : null}
+              </div>
+            ) : null}
+
+            {(notification.sender_isLogged &&
+              notification.notification_type === "proposal_accepted") ||
+            notification.notification_type === "proposal_declined" ||
+            notification.notification_type === "proposal_revision" ? (
+              <div>
+                {notification.sender_isLogged &&
+                notification.notification_type === "proposal_revision" ? (
+                  <Link
+                    to={{
+                      pathname: `/proposal-listing`,
+                    }}
+                    className="dropdown-item"
+                  >
+                    {`Proposal revision by ${notification.sender} for request ${notification.notification_user_id}${notification.notification_bid_id}`}
+                  </Link>
+                ) : notification.sender_isLogged &&
+                  notification.notification_type !== "proposal_revision" ? (
+                  <Link className="dropdown-item">
+                    {`Proposal ${notification.notification_message} by ${notification.sender}`}
+                  </Link>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ))
+      : null;
 
     return (
       <div>
@@ -104,7 +319,6 @@ class Header extends Component {
                 >
                   <Link className="nav-link" to="/business-dashboard">
                     {t("header.my_bussiness")}
-                    <span className="badge badge-danger">2</span>
                   </Link>
                 </li>
                 <li
@@ -117,39 +331,6 @@ class Header extends Component {
                   <Link className="nav-link" to="/index">
                     {t("header.marketplace")}
                   </Link>
-                </li>
-                <li style={{ marginLeft: "65%" }}>
-                  <button
-                    style={{ float: "left", fontSize: "13px", padding: "5px" }}
-                    className={
-                      localStorage.getItem("_lng") === "fi"
-                        ? "btn font-weight-bold"
-                        : "btn"
-                    }
-                    onClick={() => this.changeLanguage("fi")}
-                  >
-                    FI
-                  </button>
-                  <div
-                    style={{
-                      borderLeft: "1px solid grey",
-                      height: "15px",
-                      float: "left",
-                      marginTop: "6px",
-                      marginLeft: "-1px",
-                    }}
-                  ></div>
-                  <button
-                    style={{ fontSize: "13px", padding: "5px" }}
-                    className={
-                      localStorage.getItem("_lng") === "en"
-                        ? "btn font-weight-bold"
-                        : "btn"
-                    }
-                    onClick={() => this.changeLanguage("en")}
-                  >
-                    EN
-                  </button>
                 </li>
               </ul>
             </div>
@@ -165,144 +346,18 @@ class Header extends Component {
                 aria-expanded="false"
               >
                 <i className="icon-bell"></i>
-                {this.state.count > 0 ? (
-                  <span className="badge badge-danger"></span>
-                ) : null}
+                <span className="badge badge-danger">{this.state.unread}</span>
               </a>
               <div
                 className="dropdown-menu dropdown-menu-right"
                 aria-labelledby="alert-messages"
               >
-                {this.state.notif.map((notification, index) => (
-                  <div>
-                    {notification.sender_isLogged &&
-                    notification.notification_type === "accept-bid" ? (
-                      <Link className="dropdown-item" to="/my-contracts">
-                        Submit proposal to {notification.sender}
-                      </Link>
-                    ) : notification.sender_isLogged &&
-                      notification.notification_type === "decline-bid" ? (
-                      <Link className="dropdown-item" to="/my-contracts">
-                        Proposal declined by {notification.sender}
-                      </Link>
-                    ) : notification.sender_isLogged &&
-                      notification.notification_type === "bid_made" ? (
-                      <Link
-                        className="dropdown-item"
-                        to={{
-                          pathname: `/listing-detail/${notification.notification_bid_id}`,
-                        }}
-                      >
-                        {notification.notification_message} by{" "}
-                        {notification.sender}
-                      </Link>
-                    ) : null}
-
-                    {notification.sender_isLogged &&
-                    notification.notification_type === "proposal_sent" ? (
-                      <div>
-                        {" "}
-                        <Link
-                          onClick={() =>
-                            this.readNotif(notification.notification_id)
-                          }
-                          className="dropdown-item"
-                          to="/my-contracts"
-                        >
-                          {notification.notification_type === "accept-bid"
-                            ? `Bid accepted by ${notification.sender}`
-                            : notification.notification_type === "decline-bid"
-                            ? `Bid declined by ${notification.sender}`
-                            : null}
-                        </Link>
-                        <Link
-                          to={{
-                            pathname: `/proposal-listing`,
-                          }}
-                          className="dropdown-item"
-                        >
-                          {notification.sender_isLogged &&
-                          notification.notification_type === "proposal_sent"
-                            ? `Proposal sent by ${notification.sender} on email`
-                            : null}
-                        </Link>{" "}
-                      </div>
-                    ) : null}
-
-                    {notification.sender_isLogged &&
-                    notification.notification_type === "agreement_sent" ? (
-                      <div>
-                        <Link
-                          to={{
-                            pathname: `/agreement-listing`,
-                          }}
-                          className="dropdown-item"
-                        >
-                          {notification.sender_isLogged &&
-                          notification.notification_type === "agreement_sent"
-                            ? `Agreement sent by ${notification.sender} on email`
-                            : null}
-                        </Link>{" "}
-                      </div>
-                    ) : null}
-
-                    {(notification.sender_isLogged &&
-                      notification.notification_type ===
-                        "agreement_accepted") ||
-                    notification.notification_type === "agreement_declined" ||
-                    notification.notification_type === "agreement_revision" ? (
-                      <div>
-                        {notification.sender_isLogged &&
-                        notification.notification_type ===
-                          "agreement_revision" ? (
-                          <Link
-                            to={{
-                              pathname: `/agreement-listing`,
-                            }}
-                            className="dropdown-item"
-                          >
-                            {`Agreement revision by ${notification.sender} for request ${notification.notification_user_id}${notification.notification_bid_id}`}
-                          </Link>
-                        ) : notification.sender_isLogged &&
-                          notification.notification_type !==
-                            "agreement_revision" ? (
-                          <Link className="dropdown-item">
-                            {`Agreement ${notification.notification_message} by ${notification.sender}`}
-                          </Link>
-                        ) : null}
-                      </div>
-                    ) : null}
-
-                    {(notification.sender_isLogged &&
-                      notification.notification_type === "proposal_accepted") ||
-                    notification.notification_type === "proposal_declined" ||
-                    notification.notification_type === "proposal_revision" ? (
-                      <div>
-                        {notification.sender_isLogged &&
-                        notification.notification_type ===
-                          "proposal_revision" ? (
-                          <Link
-                            to={{
-                              pathname: `/proposal-listing`,
-                            }}
-                            className="dropdown-item"
-                          >
-                            {`Proposal revision by ${notification.sender} for request ${notification.notification_user_id}${notification.notification_bid_id}`}
-                          </Link>
-                        ) : notification.sender_isLogged &&
-                          notification.notification_type !==
-                            "proposal_revision" ? (
-                          <Link className="dropdown-item">
-                            {`Proposal ${notification.notification_message} by ${notification.sender}`}
-                          </Link>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
+                {notif}
                 <div class="dropdown-divider"></div>
-                <Link className="dropdown-item" to="/my-contracts">
-                  {t("header.view_all")}
+                <Link className="dropdown-item" to="/my-notif">
+                  <span onClick={() => this.readNotifAll()}>
+                    {t("header.view_all")}
+                  </span>
                 </Link>
               </div>
             </div>
@@ -327,7 +382,9 @@ class Header extends Component {
                     alt="Logo"
                   />
                 </div>
-                <span>{this.state.info.first_name}</span>
+                <span style={{ marginRight: "10px" }}>
+                  {this.state.info.first_name}
+                </span>
               </a>
               <div
                 className="dropdown-menu dropdown-menu-right"
@@ -341,6 +398,41 @@ class Header extends Component {
                 </Link>
               </div>
             </div>
+            <nav className="dropdown navbar navbar-expand-md">
+              <div className="collapse navbar-collapse " style={{}}>
+                <button
+                  style={{ float: "left", fontSize: "13px", padding: "5px" }}
+                  className={
+                    localStorage.getItem("_lng") === "fi"
+                      ? "btn font-weight-bold"
+                      : "btn"
+                  }
+                  onClick={() => this.changeLanguage("fi")}
+                >
+                  FI
+                </button>
+                <div
+                  style={{
+                    borderLeft: "1px solid grey",
+                    height: "15px",
+                    float: "left",
+                    marginTop: "6px",
+                    marginLeft: "-1px",
+                  }}
+                ></div>
+                <button
+                  style={{ fontSize: "13px", padding: "5px" }}
+                  className={
+                    localStorage.getItem("_lng") === "en"
+                      ? "btn font-weight-bold"
+                      : "btn"
+                  }
+                  onClick={() => this.changeLanguage("en")}
+                >
+                  EN
+                </button>
+              </div>
+            </nav>
           </div>
         </header>
       </div>

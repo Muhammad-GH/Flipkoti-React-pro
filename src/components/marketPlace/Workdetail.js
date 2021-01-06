@@ -38,6 +38,7 @@ class Workdetail extends Component {
       left: null,
       right: null,
     };
+    this.myRef = React.createRef();
   }
 
   componentDidMount = () => {
@@ -84,7 +85,7 @@ class Workdetail extends Component {
     data.set("tb_warrenty", this.state.tb_warrenty);
     data.set("tb_warrenty_type", this.state.tb_warrenty_type);
     data.append("attachment", this.state.attachment);
-    data.append("featured_image", this.state.featured_image);
+    // data.append("featured_image", this.state.featured_image);
 
     axios
       .post(`${url}/api/bid/create`, data, {
@@ -94,10 +95,18 @@ class Workdetail extends Component {
       })
       .then((result) => {
         console.log(result);
-        this.setState({ show_msg: true });
+        this.myRef.current.scrollTo(0, 0);
+        this.setState({
+          show_msg: true,
+          tb_quote: 0,
+          tb_description: "",
+          attachment: null,
+          loaded1: 0,
+        });
       })
       .catch((err) => {
         console.log(err.response.data);
+        this.myRef.current.scrollTo(0, 0);
         this.setState({ show_errors: true });
       });
   };
@@ -115,7 +124,12 @@ class Workdetail extends Component {
     if (
       event.target.files[0].name.split(".").pop() == "pdf" ||
       event.target.files[0].name.split(".").pop() == "docx" ||
-      event.target.files[0].name.split(".").pop() == "doc"
+      event.target.files[0].name.split(".").pop() == "doc" ||
+      event.target.files[0].name.split(".").pop() == "jpeg" ||
+      event.target.files[0].name.split(".").pop() == "png" ||
+      event.target.files[0].name.split(".").pop() == "jpg" ||
+      event.target.files[0].name.split(".").pop() == "gif" ||
+      event.target.files[0].name.split(".").pop() == "svg"
     ) {
       this.setState({ attachment: event.target.files[0], loaded1: 50 });
       if (this.state.loaded1 <= 100) {
@@ -131,34 +145,34 @@ class Workdetail extends Component {
       return alert("File type not supported");
     }
   };
-  handleChange4 = (event) => {
-    this.setState({ featured_image: null });
-    if (
-      event.target.files[0].name.split(".").pop() == "jpeg" ||
-      event.target.files[0].name.split(".").pop() == "png" ||
-      event.target.files[0].name.split(".").pop() == "jpg" ||
-      event.target.files[0].name.split(".").pop() == "gif" ||
-      event.target.files[0].name.split(".").pop() == "svg"
-    ) {
-      this.setState({
-        featured_image: event.target.files[0],
-        loaded: 50,
-        featured_image_err: false,
-        img_preview: URL.createObjectURL(event.target.files[0]),
-      });
-      if (this.state.loaded <= 100) {
-        setTimeout(
-          function () {
-            this.setState({ loaded: 100 });
-          }.bind(this),
-          2000
-        ); // wait 2 seconds, then reset to false
-      }
-    } else {
-      this.setState({ featured_image: null });
-      alert("File type not supported");
-    }
-  };
+  // handleChange4 = (event) => {
+  //   this.setState({ featured_image: null });
+  //   if (
+  //     event.target.files[0].name.split(".").pop() == "jpeg" ||
+  //     event.target.files[0].name.split(".").pop() == "png" ||
+  //     event.target.files[0].name.split(".").pop() == "jpg" ||
+  //     event.target.files[0].name.split(".").pop() == "gif" ||
+  //     event.target.files[0].name.split(".").pop() == "svg"
+  //   ) {
+  //     this.setState({
+  //       featured_image: event.target.files[0],
+  //       loaded: 50,
+  //       featured_image_err: false,
+  //       img_preview: URL.createObjectURL(event.target.files[0]),
+  //     });
+  //     if (this.state.loaded <= 100) {
+  //       setTimeout(
+  //         function () {
+  //           this.setState({ loaded: 100 });
+  //         }.bind(this),
+  //         2000
+  //       ); // wait 2 seconds, then reset to false
+  //     }
+  //   } else {
+  //     this.setState({ featured_image: null });
+  //     alert("File type not supported");
+  //   }
+  // };
 
   loadSaved = async () => {
     const token = await localStorage.getItem("token");
@@ -228,7 +242,7 @@ class Workdetail extends Component {
     if (this.state.show_errors === true) {
       alert = (
         <Alert variant="danger" style={{ fontSize: "13px" }}>
-          {t("success.all_fields_are_required")}
+          {t("success.bid_once")}
         </Alert>
       );
     }
@@ -260,6 +274,7 @@ class Workdetail extends Component {
               class="form-control"
               type="text"
               placeholder="800"
+              required
             />
           </div>
           <div class="form-group">
@@ -270,6 +285,7 @@ class Workdetail extends Component {
                 class="form-control"
                 type="text"
                 placeholder="20"
+                required
               />
               <select class="form-control">
                 <option>--Select--</option>
@@ -299,7 +315,7 @@ class Workdetail extends Component {
         </nav>
         <div className="main-content">
           <Sidebar />
-          <div class="page-content">
+          <div ref={this.myRef} class="page-content">
             {alert ? alert : null}
             <div class="container-fluid">
               <h3 class="head3">
@@ -345,18 +361,22 @@ class Workdetail extends Component {
                             {this.state.details.category}
                           </a>
                         </p>
-                        <a
-                          href={
-                            url +
-                            "/images/marketplace/material/" +
-                            this.state.details.tender_attachment
-                          }
-                          target="_blank"
-                          class="attachment"
-                        >
-                          <i class="icon-paperclip"></i>
-                          {this.state.details.tender_attachment}
-                        </a>
+
+                        {this.state.details.tender_attachment ? (
+                          <a
+                            href={
+                              url +
+                              "/images/marketplace/material/" +
+                              this.state.details.tender_attachment
+                            }
+                            target="_blank"
+                            class="attachment"
+                          >
+                            <i class="icon-paperclip"></i>
+                            {this.state.details.tender_attachment}
+                          </a>
+                        ) : null}
+
                         <table>
                           <tr>
                             <th>{t("list_details.budget")}</th>
@@ -366,7 +386,11 @@ class Workdetail extends Component {
                           {this.state.details.tender_type === "Request" ? (
                             <tr>
                               <th>{t("list_details.rate")}</th>
-                              <td>{this.state.details.tender_rate}</td>
+                              <td>
+                                {this.state.left}{" "}
+                                {this.state.details.tender_rate}{" "}
+                                {this.state.right}
+                              </td>
                             </tr>
                           ) : (
                             ""
@@ -423,60 +447,86 @@ class Workdetail extends Component {
                     </div>
                     <div class="col-md">
                       <div class="details-form">
-                        <form onSubmit={this.handleSubmit}>
-                          <div class="form-group">
-                            <div class="row align-items-center">
-                              <div class="col-5">
-                                <label class="d-flex ">
-                                  {t("list_details.your_quote")}
-                                </label>
-                              </div>
-                              <div class="col-7">
-                                <label class="d-flex align-items-center">
-                                  {this.state.left}
-                                  {this.state.right}/hr{" "}
-                                  <input
-                                    onChange={this.handleChange1}
-                                    class="form-control"
-                                    type="text"
-                                  />
-                                </label>
+                        {this.state.details.isUser ? (
+                          <div>
+                            <h4>Cannot bid on your own job</h4>
+                          </div>
+                        ) : (
+                          <form onSubmit={this.handleSubmit}>
+                            <div class="form-group">
+                              <div class="row align-items-center">
+                                <div class="col-5">
+                                  <label class="d-flex ">
+                                    {t("list_details.your_quote")}
+                                  </label>
+                                </div>
+                                <div class="col-7">
+                                  <label class="d-flex align-items-center">
+                                    {this.state.details.tender_budget ===
+                                    "Fixed"
+                                      ? null
+                                      : this.state.left}
+                                    {this.state.details.tender_budget ===
+                                    "Fixed"
+                                      ? null
+                                      : this.state.right}
+                                    {this.state.details.tender_budget ===
+                                    "Fixed"
+                                      ? null
+                                      : "/"}
+                                    {this.state.details.tender_budget ===
+                                    "Hourly"
+                                      ? "Hour"
+                                      : this.state.details.tender_budget ===
+                                        "per_m2"
+                                      ? "m2"
+                                      : this.state.details.tender_budget}{" "}
+                                    <input
+                                      onChange={this.handleChange1}
+                                      class="form-control"
+                                      type="number"
+                                      required
+                                      value={this.state.tb_quote}
+                                    />
+                                  </label>
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          <div class="form-group">
-                            <label for="message">
-                              {t("list_details.message")}:
-                            </label>
-                            <textarea
-                              onChange={this.handleChange2}
-                              id="message"
-                              class="form-control"
-                            ></textarea>
-                          </div>
-                          <div class="form-group">
-                            <label for="attachment">
-                              {t("c_material_list.request.attachment")}
-                            </label>
-                            <div class="file-select">
-                              <input
-                                onChange={this.handleChange3}
-                                name="attachment"
-                                type="file"
-                                id="attachment"
-                              />
-                              <label for="attachment">
-                                <img src={File} />
-                                <span class="status">Upload status</span>
-                                <ProgressBar now={this.state.loaded1} />
+                            <div class="form-group">
+                              <label for="message">
+                                {t("list_details.message")}:
                               </label>
-                              <small class="form-text text-muted">
-                                Max 2 mb pdf, doc,
-                              </small>
+                              <textarea
+                                onChange={this.handleChange2}
+                                id="message"
+                                class="form-control"
+                                required
+                                value={this.state.tb_description}
+                              ></textarea>
                             </div>
-                          </div>
-                          <div class="form-group">
+                            <div class="form-group">
+                              <label for="attachment">
+                                {t("c_material_list.request.attachment")}
+                              </label>
+                              <div class="file-select">
+                                <input
+                                  onChange={this.handleChange3}
+                                  name="attachment"
+                                  type="file"
+                                  id="attachment"
+                                />
+                                <label for="attachment">
+                                  <img src={File} />
+                                  <span class="status">Upload status</span>
+                                  <ProgressBar now={this.state.loaded1} />
+                                </label>
+                                <small class="form-text text-muted">
+                                  Max 2 mb pdf, doc, jpeg, png, jpg, gif, svg
+                                </small>
+                              </div>
+                            </div>
+                            {/* <div class="form-group">
                             <label for="main">{t("list_details.image")}</label>
                             <div class="file-select">
                               <input
@@ -500,48 +550,49 @@ class Workdetail extends Component {
                                 jpeg, png, jpg, gif, svg
                               </small>
                             </div>
-                          </div>
-                          <div class="form-group">
-                            <div class="form-check">
-                              <input
-                                type="checkbox"
-                                class="form-check-input"
-                                id="terms"
-                              />
-                              <label class="form-check-label" for="terms">
-                                {t("list_details.i_agree_all")}{" "}
-                                <a href="#">
-                                  {t("list_details.terms_of_service")}
-                                </a>
-                              </label>
+                          </div> */}
+                            <div class="form-group">
+                              <div class="form-check">
+                                <input
+                                  type="checkbox"
+                                  class="form-check-input"
+                                  id="terms"
+                                />
+                                <label class="form-check-label" for="terms">
+                                  {t("list_details.i_agree_all")}{" "}
+                                  <a href="#">
+                                    {t("list_details.terms_of_service")}
+                                  </a>
+                                </label>
+                              </div>
                             </div>
-                          </div>
 
-                          <button class="btn btn-secondary" type="submit">
-                            Submit your bid
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              this.save(this.state.details.tender_id);
-                            }}
-                            class="btn btn-light"
-                            type="submit"
-                          >
-                            <i
-                              class={
-                                classname(this.state.details.tender_id).filter(
-                                  function (el) {
+                            <button class="btn btn-secondary" type="submit">
+                              Submit your bid
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                this.save(this.state.details.tender_id);
+                              }}
+                              class="btn btn-light"
+                              type="submit"
+                            >
+                              <i
+                                class={
+                                  classname(
+                                    this.state.details.tender_id
+                                  ).filter(function (el) {
                                     return el;
-                                  }
-                                ) == "icon-heart"
-                                  ? "icon-heart"
-                                  : "icon-heart-o"
-                              }
-                            ></i>
-                            Save this job
-                          </button>
-                        </form>
+                                  }) == "icon-heart"
+                                    ? "icon-heart"
+                                    : "icon-heart-o"
+                                }
+                              ></i>
+                              Save this job
+                            </button>
+                          </form>
+                        )}
                       </div>
                     </div>
                   </div>

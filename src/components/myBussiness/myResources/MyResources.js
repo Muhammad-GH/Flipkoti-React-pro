@@ -4,64 +4,120 @@ import Header from "../../shared/Header";
 import BussinessSidebar from "../../shared/BussinessSidebar";
 import { Helper, url } from "../../../helper/helper";
 import Alert from "react-bootstrap/Alert";
+import Spinner from "react-bootstrap/Spinner";
 import { withTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 
 class MyResources extends Component {
   state = {
     first_name: "",
     last_name: "",
+    phone: "",
     email: "",
     company: "",
-    type: "",
+    type: "Sub Contractor",
+    permission: 0,
     success: 0,
-    errors: [],
+    loading: false,
+    errors: null,
+    email_unq: null,
+    permissions: [],
+    permission_id: "",
   };
 
-  componentDidMount = (params) => {
+  componentDidMount = async (params) => {
+    this._isMounted = true;
+    this.axiosCancelSource = axios.CancelToken.source();
+
     this.myRef = React.createRef();
-    this.loadData();
+    this.loadData(this.axiosCancelSource);
+    this.loadPermission(this.axiosCancelSource);
   };
 
-  loadData = async () => {
+  componentWillUnmount() {
+    this._isMounted = false;
+    this.axiosCancelSource.cancel();
+  }
+
+  loadPermission = async (axiosCancelSource) => {
+    const token = await localStorage.getItem("token");
+    axios
+      .get(`${url}/api/resourcePermission`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        cancelToken: axiosCancelSource.token,
+      })
+      .then((response) => {
+        if (this._isMounted) {
+          this.setState({
+            permissions: response.data.data,
+          });
+        }
+      })
+      .catch((err) => {
+        if (axios.isCancel(err)) {
+          console.log("Request canceled", err.message);
+        } else {
+          console.log(err.response);
+        }
+      });
+  };
+
+  loadData = async (axiosCancelSource) => {
     if (this.props.match.params.id) {
       const token = await localStorage.getItem("token");
-      const response = await axios.get(
-        `${url}/api/resource/${this.props.match.params.id}`,
-        {
+      axios
+        .get(`${url}/api/resource/${this.props.match.params.id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
-      );
-      if (response.status === 200) {
-        const {
-          first_name,
-          last_name,
-          email,
-          company,
-          type,
-        } = response.data.data;
-        this.setState({
-          first_name: first_name,
-          last_name: last_name,
-          email: email,
-          company: company,
-          type: type,
+          cancelToken: axiosCancelSource.token,
+        })
+        .then((response) => {
+          if (this._isMounted) {
+            const {
+              first_name,
+              last_name,
+              phone,
+              email,
+              company,
+              type,
+              permission_id,
+            } = response.data.data;
+            this.setState({
+              first_name: first_name,
+              last_name: last_name,
+              email: email,
+              company: company,
+              type: type,
+              phone,
+              permission: permission_id,
+            });
+          }
+        })
+        .catch((err) => {
+          if (axios.isCancel(err)) {
+            console.log("Request canceled", err.message);
+          } else {
+            console.log(err.response);
+          }
         });
-      }
     }
   };
 
   handleSubmit = async (event) => {
     event.preventDefault();
     const token = await localStorage.getItem("token");
-
+    this.setState({ loading: true });
     const data = new FormData();
     data.set("first_name", this.state.first_name);
     data.set("last_name", this.state.last_name);
+    data.set("phone", this.state.phone);
     data.set("email", this.state.email);
     data.set("company", this.state.company);
     data.set("type", this.state.type);
+    data.set("permission", this.state.permission);
     axios
       .post(`${url}/api/resources`, data, {
         headers: {
@@ -69,14 +125,33 @@ class MyResources extends Component {
         },
       })
       .then((res) => {
-        this.setState({ success: 1 });
+        this.setState({
+          success: 1,
+          first_name: "",
+          last_name: "",
+          phone: "",
+          email: "",
+          company: "",
+          type: "",
+          permission: "",
+          loading: false,
+        });
         this.myRef.current.scrollTo(0, 0);
+        this.props.history.push("/resource-list");
       })
       .catch((err) => {
-        Object.entries(err.response.data.error).map(([key, value]) => {
-          this.setState({ errors: err.response.data.error });
-        });
-        this.setState({ success: 2 });
+        this.setState({ loading: false });
+        if (err.response.status === 406) {
+          if (err.response.data.error.email) {
+            this.setState({
+              email_unq: err.response.data.error.email[0],
+            });
+          }
+        }
+        if (err.response.status === 500) {
+          this.setState({ errors: "Some Issue Occured" });
+        }
+        // this.setState({ success: 2 });
         this.myRef.current.scrollTo(0, 0);
       });
   };
@@ -84,40 +159,58 @@ class MyResources extends Component {
   handleUpdate = async (event) => {
     event.preventDefault();
     const token = await localStorage.getItem("token");
-
+    this.setState({ loading: true });
     const params = {
       first_name: this.state.first_name,
       last_name: this.state.last_name,
+      phone: this.state.phone,
       email: this.state.email,
       company: this.state.company,
       type: this.state.type,
+      permission_id: this.state.permission,
     };
 
-    const response = await axios.put(
-      `${url}/api/resource/update/${this.props.match.params.id}`,
-      null,
-      {
+    axios
+      .put(`${url}/api/resource/update/${this.props.match.params.id}`, null, {
         params: params,
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      }
-    );
-    if (response.status === 200) {
-      this.setState({ success: 1 });
-      this.myRef.current.scrollTo(0, 0);
-    }
+      })
+      .then((result) => {
+        this.myRef.current.scrollTo(0, 0);
+        this.props.history.push("/resource-list");
+      })
+      .catch((err) => {
+        if (err.response.status === 406) {
+          if (err.response.data.error.email) {
+            this.setState({
+              email_unq: err.response.data.error.email[0],
+            });
+          }
+        }
+        this.setState({ loading: false });
+      });
   };
 
   handleChange = (event) => {
-    const { name, value } = event.target;
-    this.setState({ [name]: value });
+    if (event.target.value !== "--Select--") {
+      const { name, value } = event.target;
+      this.setState({ [name]: value });
+    }
   };
 
   render() {
     const { t, i18n } = this.props;
 
-    let alert;
+    let alert, loading;
+    if (this.state.loading === true) {
+      loading = (
+        <Spinner animation="border" role="status">
+          <span className="sr-only">Loading...</span>
+        </Spinner>
+      );
+    }
     if (this.state.success === 1) {
       alert = (
         <Alert variant="success" style={{ fontSize: "13px" }}>
@@ -144,9 +237,13 @@ class MyResources extends Component {
         <div class="sidebar-toggle"></div>
         <nav aria-label="breadcrumb">
           <ol className="breadcrumb">
-            <li className="breadcrumb-item active" aria-current="page">
+            <Link
+              to="/business-dashboard"
+              className="breadcrumb-item active"
+              aria-current="page"
+            >
               {t("mycustomer.heading")}
-            </li>
+            </Link>
             <li className="breadcrumb-item active" aria-current="page">
               {t("invoice.heading")}
             </li>
@@ -183,6 +280,7 @@ class MyResources extends Component {
                             onChange={this.handleChange}
                             className="form-control"
                             type="text"
+                            required
                             value={this.state.first_name}
                           />
                         </div>
@@ -198,6 +296,7 @@ class MyResources extends Component {
                             onChange={this.handleChange}
                             className="form-control"
                             type="text"
+                            required
                             value={this.state.last_name}
                           />
                         </div>
@@ -211,8 +310,12 @@ class MyResources extends Component {
                             onChange={this.handleChange}
                             className="form-control"
                             type="email"
+                            required
                             value={this.state.email}
                           />
+                          <p style={{ color: "#eb516d " }}>
+                            {this.state.email_unq ? this.state.email_unq : null}
+                          </p>
                         </div>
                       </div>
                       <div className="col-xl-4 col-lg-5 col-md-6 offset-xl-1">
@@ -224,6 +327,7 @@ class MyResources extends Component {
                             onChange={this.handleChange}
                             className="form-control"
                             type="text"
+                            required
                             value={this.state.company}
                           />
                         </div>
@@ -235,10 +339,10 @@ class MyResources extends Component {
                             onChange={this.handleChange}
                             name="type"
                             id="type"
+                            required
                             class="form-control"
-                            placeholder={this.state.type}
+                            value={this.state.type}
                           >
-                            <option>--Select--</option>
                             <option value="Sub Contractor">
                               Sub Contractor
                             </option>
@@ -246,13 +350,62 @@ class MyResources extends Component {
                           </select>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="col-xl-3 col-lg-12">
+                      <div className="col-xl-4 col-lg-5 col-md-6 offset-xl-1">
+                        <div className="form-group">
+                          <label for="company">{t("account.phone")}</label>
+                          <input
+                            id="phone"
+                            name="phone"
+                            onChange={this.handleChange}
+                            className="form-control"
+                            type="text"
+                            required
+                            maxLength="18"
+                            value={this.state.phone}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="col-xl-4 col-lg-5 col-md-6">
+                        <div className="form-group">
+                          <label for="permission">
+                            {t("account.permission")}
+                          </label>
+                          <select
+                            onChange={this.handleChange}
+                            name="permission"
+                            id="permission"
+                            required
+                            class="form-control"
+                            value={this.state.permission}
+                          >
+                            <option>--Select--</option>
+                            {typeof this.state.permissions !== "undefined"
+                              ? this.state.permissions.map(
+                                  ({ role_name, id }, index) => (
+                                    <option value={id}>{role_name}</option>
+                                  )
+                                )
+                              : null}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                    <p style={{ color: "#eb516d " }}>
+                      {this.state.errors ? this.state.errors : null}
+                    </p>
+                    <div>
                       <div className="form-group">
                         <label className="d-none d-xl-block">&nbsp;</label>
                         <div className="clear"></div>
-                        <button className="btn btn-success">Create</button>
+                        {loading ? (
+                          loading
+                        ) : (
+                          <button className="btn btn-success">
+                            {this.props.match.params.id ? "Update" : "Create"}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

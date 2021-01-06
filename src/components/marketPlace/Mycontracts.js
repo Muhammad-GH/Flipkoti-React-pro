@@ -3,6 +3,7 @@ import axios from "axios";
 import Header from "../shared/Header";
 import Sidebar from "../shared/Sidebar";
 import Alert from "react-bootstrap/Alert";
+import Spinner from "react-bootstrap/Spinner";
 import { Helper, url } from "../../helper/helper";
 import { Link } from "react-router-dom";
 import { withTranslation } from "react-i18next";
@@ -15,46 +16,64 @@ class Mycontracts extends Component {
     search: "",
     proposal_submitted: false,
 
+    loaded: false,
     left: null,
     right: null,
   };
 
   componentDidMount = () => {
-    this.loadNotif();
-    this.loadConfig();
+    this._isMounted = true;
+    this.axiosCancelSource = axios.CancelToken.source();
+
+    this.loadNotif(this.axiosCancelSource);
+    this.loadConfig(this.axiosCancelSource);
   };
 
-  loadConfig = async () => {
+  componentWillUnmount() {
+    this._isMounted = false;
+    this.axiosCancelSource.cancel();
+  }
+
+  loadConfig = async (axiosCancelSource) => {
     const token = await localStorage.getItem("token");
     axios
       .get(`${url}/api/config/currency`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        cancelToken: axiosCancelSource.token,
       })
       .then((result) => {
-        const { left, right } = result.data;
-        this.setState({ left, right });
+        if (this._isMounted) {
+          const { left, right } = result.data;
+          this.setState({ left, right });
+        }
       })
       .catch((err) => {
-        console.log(err);
+        if (axios.isCancel(err)) {
+          console.log("Request canceled", err.message);
+        } else {
+          console.log(err.response);
+        }
       });
   };
 
-  loadNotif = async () => {
+  loadNotif = async (axiosCancelSource) => {
     const token = await localStorage.getItem("token");
     const response = await axios.get(`${url}/api/contracts`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
+      cancelToken: axiosCancelSource.token,
     });
     if (response.status === 200) {
-      this.setState({ feeds: response.data.data });
+      this.setState({ feeds: response.data.data, loaded: true });
       this.feeds_search = this.state.feeds;
     }
   };
 
   handleStatus = async (id, status) => {
+    this.setState({ loaded: false });
     const token = await localStorage.getItem("token");
     const response = await axios.post(
       `${url}/api/contracts/status/${id}/${status}`,
@@ -65,10 +84,11 @@ class Mycontracts extends Component {
         },
       }
     );
-    console.log(response);
     if (response.status === 200 && status === 3) {
       this.setState({ proposal_submitted: true });
     }
+
+    this.loadNotif(this.axiosCancelSource);
   };
 
   handleChange = (event) => {
@@ -76,7 +96,7 @@ class Mycontracts extends Component {
       { feeds: this.feeds_search, status: event.target.value },
       () => {
         if (this.state.status == "--Select--") {
-          window.location.reload();
+          this.loadNotif(this.axiosCancelSource);
         }
         this.setState((prevstate) => ({
           feeds: prevstate.feeds.filter((data) => {
@@ -92,7 +112,7 @@ class Mycontracts extends Component {
       { feeds: this.feeds_search, search: event.target.value },
       () => {
         if (this.state.search == "--Select--") {
-          window.location.reload();
+          this.loadNotif(this.axiosCancelSource);
         }
         this.setState((prevstate) => ({
           feeds: prevstate.feeds.filter((data) => {
@@ -113,95 +133,114 @@ class Mycontracts extends Component {
     if (this.state.proposal_submitted === true) {
       alert = (
         <Alert variant="success" style={{ fontSize: "13px" }}>
-          Proposal Submitted
+          Proposal Requested
         </Alert>
       );
     }
 
-    const feed = this.state.feeds.map((feed) => (
-      <div class="card mb-1">
-        <div class="card-body">
-          <div class="row">
-            <div class="col-lg-4">
-              <p>
-                {feed.notification_message}
-                <br />
-                <b class="fw-500">{feed.sender}</b>
-                <br />
-                <span class="date">Started: {feed.created_at} </span>
-              </p>
-              <p>
-                {feed.tender_status === 4 ? (
-                  <span class="badge badge-tag badge-danger">Pending</span>
-                ) : feed.tender_status === 3 ? (
-                  <span class="badge badge-tag badge-danger">Complete</span>
-                ) : feed.tender_status === 5 ? (
-                  <span class="badge badge-tag badge-danger">Cancel</span>
-                ) : feed.tender_status === 6 ? (
-                  <div>
-                    <span class="badge badge-tag badge-info">Ongoing</span>
-                    <span class="badge badge-tag badge-secondary">Sent</span>
-                  </div>
-                ) : (
-                  <span class="badge badge-tag badge-info">Ongoing</span>
-                )}
-                {/* <span class="badge badge-tag badge-secondary">My Contract</span>
+    const feed = this.state.feeds
+      ? this.state.feeds.map((feed) => (
+          <div class="card mb-1">
+            <div class="card-body">
+              <div class="row">
+                <div class="col-lg-4">
+                  <p>
+                    {feed.tender_title}
+                    <br />
+                    <b class="fw-500">{feed.sender}</b>
+                    <br />
+                    <span class="date">Started: {feed.created_at} </span>
+                  </p>
+                  <p>
+                    {feed.tender_status === 4 ? (
+                      <span class="badge badge-tag badge-danger">Pending</span>
+                    ) : feed.tender_status === 3 ? (
+                      <span class="badge badge-tag badge-danger">Complete</span>
+                    ) : feed.tender_status === 5 ? (
+                      <span class="badge badge-tag badge-danger">Cancel</span>
+                    ) : feed.tender_status === 6 ? (
+                      <div>
+                        <span class="badge badge-tag badge-info">Ongoing</span>
+                        <span class="badge badge-tag badge-secondary">
+                          Sent
+                        </span>
+                      </div>
+                    ) : (
+                      <span class="badge badge-tag badge-info">Ongoing</span>
+                    )}
+                    {/* <span class="badge badge-tag badge-secondary">My Contract</span>
                                 <span class="badge badge-tag badge-primary">My Job</span>
                                 <span class="badge badge-tag badge-info">Ongoing</span>
                                 <span class="badge badge-tag badge-success">Complete</span>
                                 <span class="badge badge-tag badge-warning">Pending</span>
                                 <span class="badge badge-tag badge-danger">Cancel</span> */}
-              </p>
-            </div>
-            <div class="col-lg-4">
-              <b class="fw-500">
-                {this.state.left}
-                {this.state.right}
-                {feed.tender_quantity
-                  ? feed.tender_quantity
-                  : feed.tender_rate
-                  ? feed.tender_rate
-                  : feed.tender_cost_per_unit}
-                / {feed.tender_budget ? feed.tender_budget : feed.tender_unit}
-              </b>
-              <br />
-              <span class="date">
-                {feed.tender_available_from} - {feed.tender_available_to}
-              </span>
-            </div>
-            <div class="col-lg-4">
-              {(feed.sender_isLogged && feed.bid_status !== 2) ||
-              (feed.sender_isLogged && feed.tender_status !== 5) ? (
-                <button
-                  href="#"
-                  onClick={() => this.handleStatus(feed.notification_bid_id, 3)}
-                  class="btn btn-outline-dark mt-3 mr-5"
-                >
-                  {t("my_contracts.submit_proposal")}
-                </button>
-              ) : null}
-              {feed.bid_status === 3 && !feed.sender_isLogged ? (
-                <Link
-                  class="btn btn-outline-dark mt-3 mr-5"
-                  to={{
-                    pathname: `/business-propsal-create/${feed.notification_bid_id}/${feed.notification_sender_id}`,
-                  }}
-                >
-                  {t("my_contracts.request_proposal")}
-                </Link>
-              ) : null}
-              <button
-                href="#"
-                onClick={() => this.handleStatus(feed.notification_bid_id, 4)}
-                class="btn btn-gray mt-3"
-              >
-                {t("my_contracts.cancel")}
-              </button>
+                  </p>
+                </div>
+                <div class="col-lg-4">
+                  <b class="fw-500">
+                    {this.state.left}
+                    {feed.tender_quantity
+                      ? feed.tender_quantity
+                      : feed.tender_rate
+                      ? feed.tender_rate
+                      : feed.tender_cost_per_unit}
+                    {this.state.right}/{" "}
+                    {feed.tender_budget ? feed.tender_budget : feed.tender_unit}
+                  </b>
+                  <br />
+                  <span class="date">
+                    {feed.tender_available_from} - {feed.tender_available_to}
+                  </span>
+                </div>
+                <div class="col-lg-4">
+                  {feed.bid_status !== 3 || feed.bid_status === 1 ? (
+                    feed.sender_isLogged &&
+                    feed.bid_status !== 2 &&
+                    feed.sender_isLogged &&
+                    feed.tender_status !== 5 &&
+                    feed.sender_isLogged &&
+                    feed.tender_status !== 6 ? (
+                      <button
+                        href="#"
+                        onClick={() =>
+                          this.handleStatus(feed.notification_bid_id, 3)
+                        }
+                        class="btn btn-outline-dark mt-3 mr-5"
+                      >
+                        {t("my_contracts.request_proposal")}
+                      </button>
+                    ) : null
+                  ) : null}
+
+                  {feed.bid_status === 3 &&
+                  feed.tender_status !== 6 &&
+                  !feed.sender_isLogged ? (
+                    <Link
+                      class="btn btn-outline-dark mt-3 mr-5"
+                      to={{
+                        pathname: `/business-propsal-create/${feed.notification_bid_id}/${feed.notification_sender_id}`,
+                      }}
+                    >
+                      {t("my_contracts.submit_proposal")}
+                    </Link>
+                  ) : null}
+                  {feed.tender_status === 5 ? null : (
+                    <button
+                      href="#"
+                      onClick={() =>
+                        this.handleStatus(feed.notification_bid_id, 4)
+                      }
+                      class="btn btn-gray mt-3"
+                    >
+                      {t("my_contracts.cancel")}
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-    ));
+        ))
+      : [];
 
     return (
       <div>
@@ -209,9 +248,13 @@ class Mycontracts extends Component {
         <div className="sidebar-toggle"></div>
         <nav aria-label="breadcrumb">
           <ol className="breadcrumb">
-            <li className="breadcrumb-item active" aria-current="page">
+            <Link
+              to="/feeds"
+              className="breadcrumb-item active"
+              aria-current="page"
+            >
               {t("header.marketplace")}
-            </li>
+            </Link>
             <li className="breadcrumb-item active" aria-current="page">
               {t("my_contracts.title")}
             </li>
@@ -292,8 +335,13 @@ class Mycontracts extends Component {
                   </div>
                 </div>
               </div>
-
-              {feed}
+              {this.state.loaded === false ? (
+                <Spinner animation="border" role="status">
+                  <span className="sr-only">Loading...</span>
+                </Spinner>
+              ) : (
+                feed
+              )}
             </div>
           </div>
         </div>

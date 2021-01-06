@@ -44,15 +44,14 @@ class Login extends Component {
       return this.setState({ err: t("success.all_fields_are_required") });
     }
 
-    const creds = {
-      email: this.state.email,
-      password: this.state.password,
-    };
+    const data = new FormData();
+    data.set("email", this.state.email);
+    data.set("password", this.state.password);
+
     const { history } = this.props;
-    console.log(creds);
 
     axios
-      .post(`${url}/api/login?email=${creds.email}&password=${creds.password}`)
+      .post(`${url}/api/login`, data)
       .then((res) => {
         console.log(res.data.success.token);
         localStorage.setItem("token", res.data.success.token);

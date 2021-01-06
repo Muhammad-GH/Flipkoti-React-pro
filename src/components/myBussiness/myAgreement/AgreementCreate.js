@@ -7,14 +7,58 @@ import File from "../../../images/file-icon.png";
 import Datetime from "react-datetime";
 import moment from "moment";
 import BusinessInfo from "../modals/BusinessInfo";
+import AddCustomer from "../modals/AddCustomer";
 import Select from "react-select";
+import Autosuggest from "react-autosuggest";
 import Alert from "react-bootstrap/Alert";
 import Spinner from "react-bootstrap/Spinner";
+import { Link } from "react-router-dom";
 import PDFViewAgreement from "../modals/PDFViewAgreement";
 import RatingModal from "../modals/RatingModal";
 import { withTranslation } from "react-i18next";
 
 const options = [];
+const clients = [];
+
+// Teach Autosuggest how to calculate suggestions for any given input value.
+const getSuggestions = (value) => {
+  const inputValue = value.trim().toLowerCase();
+  const inputLength = inputValue.length;
+
+  return inputLength === 0
+    ? []
+    : clients.filter(
+        (lang) => lang.value.toLowerCase().slice(0, inputLength) === inputValue
+      );
+};
+
+// When suggestion is clicked, Autosuggest needs to populate the input
+// based on the clicked suggestion. Teach Autosuggest how to calculate the
+// input value for every given suggestion.
+const getSuggestionValue = (suggestion) => suggestion.value;
+
+// Use your imagination to render suggestions.
+const renderSuggestion = (suggestion) => <div>{suggestion.value}</div>;
+
+// Teach Autosuggest how to calculate suggestions for any given input value.
+const getSuggestions2 = (value) => {
+  const inputValue = value.trim().toLowerCase();
+  const inputLength = inputValue.length;
+
+  return inputLength === 0
+    ? []
+    : options.filter(
+        (lang) => lang.value.toLowerCase().slice(0, inputLength) === inputValue
+      );
+};
+
+// When suggestion is clicked, Autosuggest needs to populate the input
+// based on the clicked suggestion. Teach Autosuggest how to calculate the
+// input value for every given suggestion.
+const getSuggestionValue2 = (suggestion) => suggestion.value;
+
+// Use your imagination to render suggestions.
+const renderSuggestion2 = (suggestion) => <div>{suggestion.value}</div>;
 
 class AgreementCreate extends Component {
   state = {
@@ -25,42 +69,62 @@ class AgreementCreate extends Component {
     email: "",
     emails: [],
     date: "",
+    dateFormat: "",
     due_date: "",
+    date_err: false,
+    due_date_err: false,
     error: null,
     agreement_terms: "fixed",
     agreement_type: "",
+    agreement_type_err: false,
     row_phase: [],
     mat_pay: "",
+    mat_pay_err: false,
     other: "",
     work_pay: "",
-    insurance: "",
+    work_pay_err: false,
+    agreement_insurances: "",
+    agreement_insurances_err: false,
     agreement_milestones: [],
     agreement_transport_payment: "",
+    agreement_transport_payment_err: false,
     agreement_legal_category: "",
     agreement_client_res: "",
+    agreement_client_res_other: "",
     agreement_contractor_res: "",
+    agreement_contractor_res_other: "",
     agreement_additional_work_price: "",
     agreement_material_guarantee: "",
+    agreement_material_guarantee_err: false,
     agreement_work_guarantee: "",
+    agreement_work_guarantee_err: false,
     agreement_panelty: "",
+    agreement_panelty_err: false,
     agreement_rate: "",
     agreement_service_fee: "",
     agreement_estimated_payment: "",
     attachment: null,
     attachment_pre: null,
     name: null,
+    name_err: false,
 
     errors: [],
+    name_unq: null,
     show_errors: false,
     show_msg: false,
     loading: false,
+    loading_1: false,
 
     tender_id: 0,
     proposal_id: 0,
     agreement_id: 0,
     selectedOption: null,
+    value: "",
+    suggestions: [],
+    suggestions2: [],
     userEmail: null,
     client_id: null,
+    client_id_err: false,
     configuration_val: null,
 
     work_template: null,
@@ -68,22 +132,22 @@ class AgreementCreate extends Component {
 
     agreement_status: 0,
     agreement_client_type: 0,
+    agreement_tender_draft: 0,
+    agreement_request_id_tender: 0,
 
     left: null,
     right: null,
   };
 
   componentDidMount = () => {
-    if (
-      this.props.match.params.customer !== undefined &&
-      this.props.match.params.draft === undefined
-    ) {
+    if (this.props.match.params.customer !== undefined) {
       this.setState({
         tender_id: this.props.match.params.tender,
         agreement_proposal_id: this.props.match.params.tender,
       });
-      this.setState({ userEmail: this.props.match.params.customer });
+      this.getEmail(this.props.match.params.tender);
       this.setProposalData(this.props.match.params.tender);
+      this.setDataTender(this.props.match.params.tender);
     }
     if (
       this.props.match.params.customer !== undefined &&
@@ -92,16 +156,140 @@ class AgreementCreate extends Component {
       this.setData(this.props.match.params.tender);
     }
     this.loadResources();
+    this.loadClient();
     this.loadAgreementID();
     this.loadConfig();
     this.loadCurrency();
     this.myRef = React.createRef();
+    this.myRefType = React.createRef();
+    this.myRefTerms = React.createRef();
 
     if (window.localStorage) {
       if (!localStorage.getItem("firstLoad")) {
         localStorage["firstLoad"] = true;
         window.location.reload();
       } else localStorage.removeItem("firstLoad");
+    }
+  };
+
+  setDataTender = async (id) => {
+    const token = await localStorage.getItem("token");
+    axios
+      .get(`${url}/api/agreement/get/byTID/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      .then((result) => {
+        const {
+          agreement_id,
+          agreement_tender_id,
+          agreement_proposal_id,
+          agreement_client_type,
+          agreement_client_id,
+          agreement_user_id,
+          agreement_request_id,
+          agreement_names,
+          agreement_other,
+          agreement_pdf,
+          agreement_attachment,
+          emails,
+          date,
+          agreement_due_date,
+          agreement_terms,
+          agreement_type,
+          agreement_milestones,
+          agreement_rate,
+          agreement_service_fee,
+          agreement_estimated_payment,
+          agreement_material_payment,
+          agreement_work_payment,
+          agreement_work_guarantee,
+          agreement_material_guarantee,
+          agreement_transport_payment,
+          agreement_legal_category,
+          agreement_client_res,
+          agreement_contractor_res,
+          agreement_additional_work_price,
+          agreement_insurance,
+          agreement_panelty,
+          agreement_general,
+          agreement_status,
+          email,
+        } = result.data;
+
+        this.setState({
+          agreement_proposal_id,
+          tender_id: agreement_tender_id,
+          emails: emails ? emails.split(",") : [],
+          date: date === "null" || date === null ? "" : date,
+          dateFormat:
+            date === "null" || date === null
+              ? ""
+              : date.split("-").reverse().join("-"),
+          due_date:
+            agreement_due_date === "null" || agreement_due_date === null
+              ? ""
+              : agreement_due_date,
+          agreement_terms,
+          agreement_type,
+          row_phase: JSON.parse(agreement_milestones),
+          agreement_rate,
+          agreement_service_fee,
+          agreement_estimated_payment,
+          mat_pay: agreement_material_payment,
+          work_pay: agreement_work_payment,
+          agreement_work_guarantee,
+          agreement_material_guarantee,
+          agreement_transport_payment,
+          agreement_legal_category,
+          agreement_client_res,
+          agreement_contractor_res,
+          agreement_additional_work_price,
+          agreement_insurances: agreement_insurance,
+          agreement_panelty,
+          agreement_general,
+          agreement_other,
+          userEmail: email,
+          value: email === 0 ? "" : email,
+          attachment_pre: agreement_attachment,
+          attachment: agreement_attachment,
+          agreement_status,
+          agreement_client_type,
+          name: agreement_names,
+
+          agreement_tender_draft: 1,
+          agreement_request_id_tender: agreement_request_id,
+        });
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  };
+
+  addCustomer = () => {
+    this.loadClient();
+  };
+
+  getEmail = async (id) => {
+    if (id > 0) {
+      const token = await localStorage.getItem("token");
+      axios
+        .get(`${url}/api/users/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        .then((result) => {
+          if (result.data.length > 0) {
+            this.setState({
+              userEmail: result.data,
+            });
+          }
+        })
+        .catch((err) => {
+          console.log(err);
+        });
     }
   };
 
@@ -131,8 +319,10 @@ class AgreementCreate extends Component {
     });
 
     if (response.status === 200) {
-      const { work_template, mat_template } = response.data.data[0];
-      this.setState({ work_template, mat_template });
+      if (response.data.data.length > 0) {
+        const { work_template, mat_template } = response.data.data[0];
+        this.setState({ work_template, mat_template });
+      }
     }
   };
   setProposalDataReq = async (id) => {
@@ -192,13 +382,19 @@ class AgreementCreate extends Component {
           agreement_status,
           agreement_names,
         } = result.data[0];
-
         this.setState({
           agreement_proposal_id,
           tender_id: agreement_tender_id,
-          emails: emails.split(","),
-          date,
-          due_date: agreement_due_date,
+          emails: emails ? emails.split(",") : [],
+          date: date === "null" || date === null ? "" : date,
+          dateFormat:
+            date === "null" || date === null
+              ? ""
+              : date.split("-").reverse().join("-"),
+          due_date:
+            agreement_due_date === "null" || agreement_due_date === null
+              ? ""
+              : agreement_due_date,
           agreement_terms,
           agreement_type,
           row_phase: JSON.parse(agreement_milestones),
@@ -214,16 +410,23 @@ class AgreementCreate extends Component {
           agreement_client_res,
           agreement_contractor_res,
           agreement_additional_work_price,
-          insurance: agreement_insurance,
+          agreement_insurances: agreement_insurance,
           agreement_panelty,
           agreement_general,
           agreement_other,
           userEmail: email,
+          value: email === 0 ? "" : email,
           attachment_pre: agreement_attachment,
+          attachment: agreement_attachment,
           agreement_status,
           agreement_client_type,
           name: agreement_names,
         });
+
+        this._c_total.value = agreement_rate;
+        this.agreement_legal_category.value = agreement_legal_category;
+        this.agreement_client_res.value = agreement_client_res;
+        this.agreement_contractor_res.value = agreement_contractor_res;
       })
       .catch((err) => {
         console.log(err);
@@ -295,17 +498,84 @@ class AgreementCreate extends Component {
       });
   };
 
+  loadClient = async () => {
+    const token = await localStorage.getItem("token");
+    axios
+      .get(`${url}/api/resources-list/Client`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      .then((result) => {
+        result.data.data.map((res) => {
+          var keys = ["value", "label"];
+          var _key = {};
+          keys.forEach((key, i) => (_key[key] = res.email));
+          clients.push(_key);
+        });
+      })
+      .catch((err) => {
+        console.log(err.response);
+      });
+  };
+
   handleAuto = (selectedOption) => {
     this.setState({ selectedOption });
   };
+  onChange = (event, { newValue }) => {
+    this.setState({
+      client_id_err: false,
+      value: newValue,
+    });
+  };
+  onChange2 = (event, { newValue }) => {
+    this.setState({
+      email: newValue,
+    });
+  };
+  // Autosuggest will call this function every time you need to update suggestions.
+  // You already implemented this logic above, so just use it.
+  onSuggestionsFetchRequested = ({ value }) => {
+    this.setState({
+      suggestions: getSuggestions(value),
+    });
+  };
+
+  // Autosuggest will call this function every time you need to clear suggestions.
+  onSuggestionsClearRequested = () => {
+    this.setState({
+      suggestions: [],
+    });
+  };
+
+  onSuggestionsFetchRequested2 = ({ value }) => {
+    this.setState({
+      suggestions2: getSuggestions2(value),
+    });
+  };
+
+  // // Autosuggest will call this function every time you need to clear suggestions.
+  onSuggestionsClearRequested2 = () => {
+    this.setState({
+      suggestions2: [],
+    });
+  };
   handleBusinessInfo = (val) => {
     this.setState({ business_info: val });
+    this.setState({
+      agreement_work_guarantee: this.state.business_info
+        .agreement_work_guarantee,
+      agreement_material_guarantee: this.state.business_info
+        .agreement_material_guarantee,
+      agreement_insurances: this.state.business_info.agreement_insurances,
+      agreement_panelty: this.state.business_info.agreement_panelty,
+    });
   };
   handleAppend = (event) => {
     event.preventDefault();
     let row_phase = this.state.row_phase;
     let keys = ["des", "due_date", "amount"];
-    let gg = `${"des"},${"due_date"},${"amount"}`.split(",");
+    let gg = `${""},${""},${"amount"}`.split(",");
     let result = {};
     keys.forEach((key, i) => (result[key] = gg[i]));
     row_phase.push(result);
@@ -359,6 +629,9 @@ class AgreementCreate extends Component {
     const { name, value } = event.target;
     this.setState({ [name]: value, error: null });
   };
+  handleRes = ({ value }) => {
+    this.setState({ email: value, error: null });
+  };
   handleKeyDown = (evt) => {
     if (["Enter", "Tab", ","].includes(evt.key)) {
       evt.preventDefault();
@@ -374,7 +647,11 @@ class AgreementCreate extends Component {
     }
   };
   handleChange3 = (event) => {
-    this.setState({ date: moment(event._d).format("DD-MM-YYYY") });
+    this.setState({ due_date: "" });
+    this.setState({
+      date: moment(event._d).format("DD-MM-YYYY"),
+      dateFormat: moment(event._d).format("YYYY-MM-DD"),
+    });
   };
   handleChange4 = (event) => {
     this.setState({ due_date: moment(event._d).format("DD-MM-YYYY") });
@@ -385,8 +662,16 @@ class AgreementCreate extends Component {
     }
     if (
       event.target.files[0].name.split(".").pop() == "pdf" ||
+      event.target.files[0].name.split(".").pop() == "PDF" ||
       event.target.files[0].name.split(".").pop() == "docx" ||
-      event.target.files[0].name.split(".").pop() == "doc"
+      event.target.files[0].name.split(".").pop() == "doc" ||
+      event.target.files[0].name.split(".").pop() == "jpeg" ||
+      event.target.files[0].name.split(".").pop() == "png" ||
+      event.target.files[0].name.split(".").pop() == "PNG" ||
+      event.target.files[0].name.split(".").pop() == "jpg" ||
+      event.target.files[0].name.split(".").pop() == "JPG" ||
+      event.target.files[0].name.split(".").pop() == "gif" ||
+      event.target.files[0].name.split(".").pop() == "svg"
     ) {
       this.setState({ attachment: event.target.files[0] });
     } else {
@@ -394,21 +679,40 @@ class AgreementCreate extends Component {
       return alert("File type not supported");
     }
   };
+  handleAttachmentRemove = () => {
+    this.setState({ attachment: null });
+  };
 
   handleDraft = async (event) => {
     event.preventDefault();
+
+    this.setState({
+      mat_pay_err: false,
+      work_pay_err: false,
+      date_err: false,
+      due_date_err: false,
+      name_err: false,
+      name_unq: null,
+    });
+
+    let client_id;
     if (
-      (this.state.selectedOption === null &&
-        this.props.match.params.draft !== undefined) ||
-      (this.state.selectedOption === null && this.state.tender_id === 0)
+      this.state.tender_id !== 0 ||
+      this.props.match.params.draft !== undefined
     ) {
-      return alert("please select a resource");
+      client_id = this.props.match.params.customer;
+    } else {
+      if (this.state.value === null || this.state.value === "") {
+        client_id = 0;
+      } else {
+        client_id = this.state.value;
+      }
     }
 
-    let client_id =
-      this.state.tender_id !== 0
-        ? this.props.match.params.customer
-        : this.state.selectedOption.value;
+    if (this.state.name == null) {
+      this.myRef.current.scrollTo(0, 0);
+      return this.setState({ name_err: true });
+    }
 
     let agreement_type =
       this.state.agreement_terms === "hourly"
@@ -416,7 +720,7 @@ class AgreementCreate extends Component {
         : this.state.agreement_type;
 
     const token = await localStorage.getItem("token");
-    // this.setState({ loading: true})
+    this.setState({ loading_1: true });
     const data = new FormData();
     // data.set('logo', this.state.logo)
     data.set("agreement_request_id", this.requestInput.value);
@@ -428,7 +732,7 @@ class AgreementCreate extends Component {
     data.set("agreement_terms", this.state.agreement_terms);
     data.set("agreement_type", agreement_type);
     data.set("agreement_material_payment", this.state.mat_pay);
-    data.set("agreement_insurance", this.state.insurance);
+    data.set("agreement_insurance", this.state.agreement_insurances);
     data.set("agreement_other", this.state.other);
     data.set("agreement_work_payment", this.state.work_pay);
     data.set("agreement_work_guarantee", this.state.agreement_work_guarantee);
@@ -452,26 +756,56 @@ class AgreementCreate extends Component {
     data.set("agreement_panelty", this.state.agreement_panelty);
     data.set("agreement_rate", this._c_total.value);
     data.set("agreement_milestones", this._milestone.value);
-    data.set("agreement_service_fee", this._fee.value);
-    data.set("agreement_estimated_payment", this.est_pay.value);
+    data.set(
+      "agreement_service_fee",
+      this._fee.value === "NaN" ? 0 : this._fee.value
+    );
+    data.set(
+      "agreement_estimated_payment",
+      this.est_pay.value ? this.est_pay.value : 0
+    );
     data.set("agreement_names", this.state.name);
+    data.set(
+      "agreement_client_res_other",
+      this.state.agreement_client_res_other
+    );
+    data.set(
+      "agreement_contractor_res_other",
+      this.state.agreement_contractor_res_other
+    );
     data.append("attachment", this.state.attachment);
     axios
-      .post(`${url}/api/agreement/create`, data, {
+      .post(`${url}/api/agreement/draft`, data, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       })
       .then((res) => {
         console.log(res);
-        this.setState({ show_msg: true, loading: false });
+        this.setState({ show_msg: true, loading_1: false });
         this.myRef.current.scrollTo(0, 0);
       })
       .catch((err) => {
-        Object.entries(err.response.data.error).map(([key, value]) => {
-          this.setState({ errors: err.response.data.error });
-        });
-        this.setState({ show_errors: true, loading: false });
+        // Object.entries(err.response.data.error).map(([key, value]) => {
+        //   this.setState({ errors: err.response.data.error });
+        // }); show_errors: true,
+        if (err.response.status === 406) {
+          if (err.response.data.error.agreement_names) {
+            this.setState({
+              name_unq: err.response.data.error.agreement_names[0],
+            });
+          }
+        }
+        if (err.response.status === 403) {
+          this.setState({
+            client_id_err: true,
+            loading: false,
+          });
+        }
+        if (err.response.status === 500) {
+          alert("Request cannot be processed, try again later");
+        }
+        this.setState({ loading_1: false });
         this.myRef.current.scrollTo(0, 0);
       });
 
@@ -481,26 +815,105 @@ class AgreementCreate extends Component {
     }
   };
 
-  handleSubmit = async (event) => {
-    // event.preventDefault();
+  handleSubmit = async (e, event) => {
+    e.preventDefault();
+
+    this.setState({
+      date_err: false,
+      due_date_err: false,
+      agreement_type_err: false,
+      mat_pay_err: false,
+      work_pay_err: false,
+      agreement_transport_payment_err: false,
+      agreement_material_guarantee_err: false,
+      agreement_work_guarantee_err: false,
+      agreement_insurances_err: false,
+      agreement_panelty_err: false,
+      name_err: false,
+    });
 
     let client_id;
     if (
       this.state.tender_id !== 0 ||
       this.props.match.params.draft !== undefined
     ) {
-      client_id = this.props.match.params.customer;
+      client_id =
+        this.props.match.params.customer == 0
+          ? this.state.value
+          : this.props.match.params.customer;
     } else {
-      if (this.state.selectedOption === null) {
+      if (this.state.value === null || this.state.value === "") {
         return alert("please select a resource");
       }
-      client_id = this.state.selectedOption.value;
+      client_id = this.state.value;
     }
 
     let agreement_type =
       this.state.agreement_terms === "hourly"
         ? "hourly"
         : this.state.agreement_type;
+
+    if (this.state.date == "" || this.state.date == null) {
+      this.myRef.current.scrollTo(0, 0);
+      return this.setState({ date_err: true });
+    }
+    if (this.state.due_date == "" || this.state.due_date == null) {
+      this.myRef.current.scrollTo(0, 0);
+      return this.setState({ due_date_err: true });
+    }
+    if (agreement_type == "" || agreement_type == null) {
+      this.myRefType.current.scrollIntoView();
+      return this.setState({ agreement_type_err: true });
+    }
+    if (this.state.mat_pay == "" || this.state.mat_pay == null) {
+      this.myRefTerms.current.scrollIntoView();
+      return this.setState({ mat_pay_err: true });
+    }
+    if (this.state.work_pay == "" || this.state.work_pay == null) {
+      this.myRefTerms.current.scrollIntoView();
+      return this.setState({ work_pay_err: true });
+    }
+    if (
+      this.state.agreement_transport_payment == "" ||
+      this.state.agreement_transport_payment == null
+    ) {
+      this.myRefTerms.current.scrollIntoView();
+      return this.setState({ agreement_transport_payment_err: true });
+    }
+    if (
+      this.state.agreement_material_guarantee == "" ||
+      this.state.agreement_material_guarantee == null
+    ) {
+      this.myRefTerms.current.scrollIntoView();
+      return this.setState({ agreement_material_guarantee_err: true });
+    }
+    if (
+      this.state.agreement_work_guarantee == "" ||
+      this.state.agreement_work_guarantee == null
+    ) {
+      this.myRefTerms.current.scrollIntoView();
+      return this.setState({ agreement_work_guarantee_err: true });
+    }
+    if (
+      this.state.agreement_insurances == "" ||
+      this.state.agreement_insurances == null
+    ) {
+      this.myRefTerms.current.scrollIntoView();
+      return this.setState({ agreement_insurances_err: true });
+    }
+    if (
+      this.state.agreement_panelty == "" ||
+      this.state.agreement_panelty == null
+    ) {
+      this.myRefTerms.current.scrollIntoView();
+      return this.setState({ agreement_panelty_err: true });
+    }
+    if (this.state.name == null) {
+      this.myRef.current.scrollTo(0, 0);
+      return this.setState({ name_err: true });
+    }
+
+    this.setState({ loading: true });
 
     const token = await localStorage.getItem("token");
     const data = new FormData();
@@ -513,13 +926,21 @@ class AgreementCreate extends Component {
     data.set("agreement_terms", this.state.agreement_terms);
     data.set("agreement_type", agreement_type);
     data.set("agreement_material_payment", this.state.mat_pay);
-    data.set("agreement_insurance", this.state.insurance);
+    data.set("agreement_insurance", this.state.agreement_insurances);
     data.set("agreement_other", this.state.other);
     data.set("agreement_work_payment", this.state.work_pay);
     data.set("agreement_work_guarantee", this.state.agreement_work_guarantee);
     data.set("agreement_legal_category", this.agreement_legal_category.value);
     data.set("agreement_client_res", this.agreement_client_res.value);
+    data.set(
+      "agreement_client_res_other",
+      this.state.agreement_client_res_other
+    );
     data.set("agreement_contractor_res", this.agreement_contractor_res.value);
+    data.set(
+      "agreement_contractor_res_other",
+      this.state.agreement_contractor_res_other
+    );
     data.set(
       "agreement_additional_work_price",
       this.state.agreement_additional_work_price
@@ -536,8 +957,14 @@ class AgreementCreate extends Component {
     data.set("agreement_panelty", this.state.agreement_panelty);
     data.set("agreement_rate", this._c_total.value);
     data.set("agreement_milestones", this._milestone.value);
-    data.set("agreement_service_fee", this._fee.value);
-    data.set("agreement_estimated_payment", this.est_pay.value);
+    data.set(
+      "agreement_service_fee",
+      this._fee.value === "NaN" ? 0 : this._fee.value
+    );
+    data.set(
+      "agreement_estimated_payment",
+      this.est_pay.value ? this.est_pay.value : 0
+    );
     data.set("sent", event);
     data.set("logo", this.state.business_info.company_logo);
     data.set("company_id", this.state.business_info.company_id);
@@ -560,15 +987,59 @@ class AgreementCreate extends Component {
         },
       })
       .then((res) => {
-        console.log(res);
-        this.setState({ show_msg: true, loading: false });
+        this.setState({
+          show_msg: true,
+          loading: false,
+          date: "",
+          mat_pay: "",
+          agreement_insurances: "",
+          other: "",
+          work_pay: "",
+          agreement_work_guarantee: "",
+          agreement_client_res_other: "",
+          agreement_contractor_res_other: "",
+          agreement_additional_work_price: "",
+          agreement_material_guarantee: "",
+          agreement_transport_payment: "",
+          due_date: "",
+          agreement_panelty: "",
+          mat_template: null,
+          work_template: null,
+          name: "",
+          attachment: null,
+        });
+        this.agreement_legal_category.value = "";
+        this.agreement_client_res.value = "";
+        this.agreement_contractor_res.value = "";
+        this._c_total.value = "";
+        this._milestone.value = "";
+        this._fee.value = "";
+        this.est_pay.value = "";
         this.myRef.current.scrollTo(0, 0);
+        this.props.history.push("/agreement-listing");
       })
       .catch((err) => {
-        Object.entries(err.response.data.error).map(([key, value]) => {
-          this.setState({ errors: err.response.data.error });
-        });
-        this.setState({ show_errors: true, loading: false });
+        if (err.response.status === 406) {
+          if (err.response.data.error.agreement_names) {
+            this.setState({
+              name_unq: err.response.data.error.agreement_names[0],
+            });
+          }
+          if (err.response.data.error.agreement_client_id) {
+            this.setState({
+              client_id_err: true,
+            });
+          }
+        }
+        if (err.response.status === 403) {
+          this.setState({
+            client_id_err: true,
+          });
+        }
+        if (err.response.status === 500) {
+          alert("Request cannot be processed, try again later");
+        }
+        this.setState({ loading: false });
         this.myRef.current.scrollTo(0, 0);
       });
 
@@ -581,10 +1052,25 @@ class AgreementCreate extends Component {
   handleUpdate = async (event) => {
     event.preventDefault();
 
-    let client_id =
+    let client_id;
+    if (
+      this.state.tender_id !== 0 ||
       this.props.match.params.draft !== undefined
-        ? this.props.match.params.customer
-        : this.state.selectedOption.value;
+    ) {
+      if (this.props.match.params.customer > 0) {
+        client_id = this.props.match.params.customer;
+      } else if (this.state.value === null || this.state.value === "") {
+        client_id = 0;
+      } else {
+        client_id = this.state.value;
+      }
+    } else {
+      if (this.state.value === null || this.state.value === "") {
+        client_id = 0;
+      } else {
+        client_id = this.state.value;
+      }
+    }
 
     let agreement_type =
       this.state.agreement_terms === "hourly"
@@ -592,9 +1078,8 @@ class AgreementCreate extends Component {
         : this.state.agreement_type;
 
     const token = await localStorage.getItem("token");
-    // this.setState({ loading: true})
+    this.setState({ loading: true });
     const data = new FormData();
-    // data.set('logo', this.state.logo)
     data.set("agreement_request_id", this.requestInput.value);
     data.set("agreement_tender_id", this.state.tender_id);
     data.set("agreement_client_id", client_id);
@@ -604,7 +1089,7 @@ class AgreementCreate extends Component {
     data.set("agreement_terms", this.state.agreement_terms);
     data.set("agreement_type", agreement_type);
     data.set("agreement_material_payment", this.state.mat_pay);
-    data.set("agreement_insurance", this.state.insurance);
+    data.set("agreement_insurance", this.state.agreement_insurances);
     data.set("agreement_other", this.state.other);
     data.set("agreement_work_payment", this.state.work_pay);
     data.set("agreement_work_guarantee", this.state.agreement_work_guarantee);
@@ -627,9 +1112,23 @@ class AgreementCreate extends Component {
     data.set("agreement_panelty", this.state.agreement_panelty);
     data.set("agreement_rate", this._c_total.value);
     data.set("agreement_milestones", this._milestone.value);
-    data.set("agreement_service_fee", this._fee.value);
-    data.set("agreement_estimated_payment", this.est_pay.value);
+    data.set(
+      "agreement_service_fee",
+      this._fee.value === "NaN" ? 0 : this._fee.value
+    );
+    data.set(
+      "agreement_estimated_payment",
+      this.est_pay.value ? this.est_pay.value : 0
+    );
     data.set("agreement_names", this.state.name);
+    data.set(
+      "agreement_client_res_other",
+      this.state.agreement_client_res_other
+    );
+    data.set(
+      "agreement_contractor_res_other",
+      this.state.agreement_contractor_res_other
+    );
     data.append("attachment", this.state.attachment);
     axios
       .post(`${url}/api/agreement/put`, data, {
@@ -642,10 +1141,21 @@ class AgreementCreate extends Component {
         this.myRef.current.scrollTo(0, 0);
       })
       .catch((err) => {
-        Object.entries(err.response.data.error).map(([key, value]) => {
-          this.setState({ errors: err.response.data.error });
-        });
-        this.setState({ show_errors: true, loading: false });
+        if (err.response.data.error) {
+          Object.entries(err.response.data.error).map(([key, value]) => {
+            this.setState({ errors: err.response.data.error });
+          });
+          this.setState({ show_errors: true, loading: false });
+        }
+        if (err.response.status === 403) {
+          this.setState({
+            client_id_err: true,
+            loading: false,
+          });
+        }
+        if (err.response.status === 500) {
+          alert("Request cannot be processed, try again later");
+        }
         this.myRef.current.scrollTo(0, 0);
       });
 
@@ -658,19 +1168,27 @@ class AgreementCreate extends Component {
   hiddenFields = () => {
     this.setState({
       client_id:
-        this.state.tender_id !== 0 ||
-        this.props.match.params.draft !== undefined
-          ? this.state.userEmail
-          : this.state.selectedOption.value,
+        this.state.value === "" ? this.state.userEmail : this.state.value,
       agreement_milestones: this._milestone.value,
       agreement_legal_category: this.agreement_legal_category.value,
       agreement_client_res: this.agreement_client_res.value,
       agreement_contractor_res: this.agreement_contractor_res.value,
+      agreement_estimated_payment: this.est_pay.value,
     });
   };
 
   render() {
     const { t, i18n } = this.props;
+
+    var yesterday = moment().subtract(1, "day");
+    function valid(current) {
+      return current.isAfter(yesterday);
+    }
+
+    var date = this.state.date ? moment(this.state.dateFormat) : null;
+    function valid2(current) {
+      return current.isAfter(date);
+    }
 
     const userInfo = {
       client_id: this.state.client_id,
@@ -681,11 +1199,13 @@ class AgreementCreate extends Component {
       agreement_type: this.state.agreement_type,
       mat_pay: this.state.mat_pay,
       work_pay: this.state.work_pay,
-      insurance: this.state.insurance,
+      agreement_insurances: this.state.agreement_insurances,
       agreement_transport_payment: this.state.agreement_transport_payment,
       agreement_legal_category: this.state.agreement_legal_category,
       agreement_client_res: this.state.agreement_client_res,
+      agreement_client_res_other: this.state.agreement_client_res_other,
       agreement_contractor_res: this.state.agreement_contractor_res,
+      agreement_contractor_res_other: this.state.agreement_contractor_res_other,
       agreement_milestones: this.state.agreement_milestones,
       agreement_additional_work_price: this.state
         .agreement_additional_work_price,
@@ -700,7 +1220,7 @@ class AgreementCreate extends Component {
       right: this.state.right,
     };
 
-    let alert, loading;
+    let alert, loading, loading_1;
     if (this.state.show_errors === true) {
       alert = (
         <Alert variant="danger" style={{ fontSize: "13px", zIndex: 1 }}>
@@ -727,12 +1247,46 @@ class AgreementCreate extends Component {
         </Spinner>
       );
     }
+    if (this.state.loading_1 === true) {
+      loading_1 = (
+        <Spinner animation="border" role="status">
+          <span className="sr-only">Loading...</span>
+        </Spinner>
+      );
+    }
 
-    const { selectedOption } = this.state;
+    const {
+      selectedOption,
+      value,
+      email,
+      suggestions,
+      suggestions2,
+    } = this.state;
+
     let req_id =
       this.props.match.params.draft === "update"
         ? this.props.match.params.tender
+        : this.state.agreement_tender_draft === 1
+        ? this.state.agreement_request_id_tender
         : `${this.state.business_info.user_id}${this.state.agreement_id}`;
+
+    // Autosuggest will pass through all these props to the input.
+    const inputProps = {
+      placeholder: "Email id or name of client",
+      value,
+      className: "form-control",
+      onChange: this.onChange,
+    };
+
+    // Autosuggest will pass through all these props to the input.
+    const inputProps2 = {
+      placeholder: "Email id ",
+      value: this.state.email,
+      className: "form-control",
+      onChange: this.onChange2,
+      onKeyDown: this.handleKeyDown,
+      onPaste: this.handlePaste,
+    };
 
     return (
       <div>
@@ -740,10 +1294,20 @@ class AgreementCreate extends Component {
         <div className="sidebar-toggle"></div>
         <nav aria-label="breadcrumb">
           <ol className="breadcrumb">
-            <li className="breadcrumb-item ">{t("mycustomer.heading")}</li>
-            <li className="breadcrumb-item ">
+            <Link
+              to="/business-dashboard"
+              className="breadcrumb-item active"
+              aria-current="page"
+            >
+              {t("mycustomer.heading")}
+            </Link>
+            <Link
+              to="/agreement-listing"
+              className="breadcrumb-item active"
+              aria-current="page"
+            >
               {t("b_sidebar.agreement.agreement")}
-            </li>
+            </Link>
             <li className="breadcrumb-item active" aria-current="page">
               {t("c_material_list.listing.create")}
             </li>
@@ -754,8 +1318,72 @@ class AgreementCreate extends Component {
           <div ref={this.myRef} className="page-content">
             {alert ? alert : null}
             <div className="container-fluid">
+              <div
+                className="d-md-flex justify-content-between"
+                style={{ maxWidth: "1120px" }}
+              >
+                <h3 className="head3">{t("myproposal.cre_prop")}</h3>
+                <div className="mt-md-n3 mt-sm-4 mb-sm-4 mb-md-0">
+                  <button
+                    onClick={this.hiddenFields}
+                    className="btn btn-gray mb-md-0 mb-3 mr-4 clk2"
+                    data-toggle="modal"
+                    data-target="#preview-info"
+                  >
+                    Preview Agreement
+                  </button>
+
+                  {this.props.match.params.draft !== undefined ||
+                  this.state.agreement_tender_draft === 1 ? (
+                    <button
+                      onClick={this.handleUpdate}
+                      class="btn btn-sm btn-gray mr-3 mb-3 mb-sm-0 clk2"
+                    >
+                      Update as a draft
+                    </button>
+                  ) : loading ? (
+                    loading
+                  ) : (
+                    <button
+                      onClick={this.handleDraft}
+                      class="btn btn-gray mb-md-0 mb-3 mr-4 clk2"
+                    >
+                      Save as a draft
+                    </button>
+                  )}
+
+                  <button
+                    onClick={(e) => this.handleSubmit(e, 1)}
+                    className="btn btn-primary mb-md-0 mb-4 clk2"
+                  >
+                    Submit &amp; Send
+                  </button>
+                </div>
+              </div>
               <div className="card" style={{ maxWidth: "1120px" }}>
                 <div className="card-body">
+                  <div className="row">
+                    <div className="col-xl-12 col-lg-12">
+                      <div className="form-group">
+                        <label for="name">{t("myproposal.name")}</label>
+                        <input
+                          id="name"
+                          className="form-control"
+                          type="text"
+                          name="name"
+                          value={this.state.name}
+                          onChange={this.handleChange2}
+                        />
+                        <p style={{ color: "#eb516d " }}>
+                          {this.state.name_err === true
+                            ? "Name is required"
+                            : null}
+                          {this.state.name_unq ? this.state.name_unq : null}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="row">
                     <input
                       type="hidden"
@@ -788,7 +1416,7 @@ class AgreementCreate extends Component {
                     <div className="col-lg-5 col-md-6">
                       <div className="form-group">
                         <div className="file-select file-sel inline">
-                          <label for="attachment1" style={{ width: "70%" }}>
+                          <label for="attachment1sdsd" style={{ width: "70%" }}>
                             <img
                               src={
                                 this.state.business_info.company_logo === null
@@ -797,7 +1425,7 @@ class AgreementCreate extends Component {
                                     "/images/marketplace/company_logo/" +
                                     this.state.business_info.company_logo
                               }
-                              alt="Logo"
+                              alt=""
                             />
                           </label>
                         </div>
@@ -845,27 +1473,69 @@ class AgreementCreate extends Component {
                             readOnly={true}
                           />
                         ) : this.props.match.params.draft !== undefined ? (
-                          <input
-                            id="customer-info"
-                            class="form-control"
-                            type="text"
-                            value={this.state.userEmail}
-                            readOnly={true}
-                          />
-                        ) : this.props.match.params.draft !== undefined ? (
-                          <input
-                            id="customer-info"
-                            class="form-control"
-                            type="text"
-                            value={this.state.userEmail}
-                            readOnly={true}
-                          />
+                          <React.Fragment>
+                            <div class="input-group">
+                              <Autosuggest
+                                suggestions={suggestions}
+                                onSuggestionsFetchRequested={
+                                  this.onSuggestionsFetchRequested
+                                }
+                                onSuggestionsClearRequested={
+                                  this.onSuggestionsClearRequested
+                                }
+                                getSuggestionValue={getSuggestionValue}
+                                renderSuggestion={renderSuggestion}
+                                inputProps={inputProps}
+                                value={this.state.value}
+                              />
+                              <label>
+                                <a
+                                  href="#"
+                                  data-toggle="modal"
+                                  data-target="#add-cus"
+                                >
+                                  [+]
+                                </a>
+                              </label>
+                            </div>
+                            <p style={{ color: "#eb516d " }}>
+                              {this.state.client_id_err === true
+                                ? "Customer not found"
+                                : null}
+                            </p>
+                          </React.Fragment>
                         ) : (
-                          <Select
-                            value={selectedOption}
-                            onChange={this.handleAuto}
-                            options={options}
-                          />
+                          <React.Fragment>
+                            <div class="input-group">
+                              <Autosuggest
+                                suggestions={suggestions}
+                                onSuggestionsFetchRequested={
+                                  this.onSuggestionsFetchRequested
+                                }
+                                onSuggestionsClearRequested={
+                                  this.onSuggestionsClearRequested
+                                }
+                                getSuggestionValue={getSuggestionValue}
+                                renderSuggestion={renderSuggestion}
+                                inputProps={inputProps}
+                                value={this.state.value}
+                              />
+                              <label>
+                                <a
+                                  href="#"
+                                  data-toggle="modal"
+                                  data-target="#add-cus"
+                                >
+                                  [+]
+                                </a>
+                              </label>
+                            </div>
+                            <p style={{ color: "#eb516d " }}>
+                              {this.state.client_id_err === true
+                                ? "Customer not found"
+                                : null}
+                            </p>
+                          </React.Fragment>
                         )}
                       </div>
                       <div className="form-group">
@@ -884,17 +1554,19 @@ class AgreementCreate extends Component {
                             </button>
                           </div>
                         ))}
-                        <input
-                          id="mails"
-                          className="form-control"
-                          type="text"
-                          name="email"
-                          value={this.state.email}
-                          placeholder="Type or paste email addresses and press `Enter`..."
-                          onKeyDown={this.handleKeyDown}
-                          onChange={this.handleChange2}
-                          onPaste={this.handlePaste}
+                        <Autosuggest
+                          suggestions={suggestions2}
+                          onSuggestionsFetchRequested={
+                            this.onSuggestionsFetchRequested2
+                          }
+                          onSuggestionsClearRequested={
+                            this.onSuggestionsClearRequested2
+                          }
+                          getSuggestionValue={getSuggestionValue2}
+                          renderSuggestion={renderSuggestion2}
+                          inputProps={inputProps2}
                         />
+
                         {this.state.error && (
                           <p className="error">{this.state.error}</p>
                         )}
@@ -921,23 +1593,35 @@ class AgreementCreate extends Component {
                         <label for="date">{t("myproposal.date")}</label>
                         <Datetime
                           onChange={(date) => this.handleChange3(date)}
+                          isValidDate={valid}
                           id="date"
                           name="date"
                           dateFormat="DD-MM-YYYY"
                           timeFormat={false}
                           value={this.state.date}
                         />
+                        <p style={{ color: "#eb516d " }}>
+                          {this.state.date_err === true
+                            ? "Date is required"
+                            : null}
+                        </p>
                       </div>
                       <div className="form-group">
                         <label for="due-date">{t("myproposal.due_date")}</label>
                         <Datetime
                           onChange={(date) => this.handleChange4(date)}
+                          isValidDate={valid2}
                           id="due-date"
                           name="due-date"
                           dateFormat="DD-MM-YYYY"
                           timeFormat={false}
                           value={this.state.due_date}
                         />
+                        <p style={{ color: "#eb516d " }}>
+                          {this.state.due_date_err === true
+                            ? "Due date is required"
+                            : null}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1010,13 +1694,18 @@ class AgreementCreate extends Component {
                             </div>
                             <div className="col-sm-9">
                               <b className="float-sm-right">
-                                Client’s budget: €5000.00 EUR{" "}
+                                Client’s budget: €
+                                {userInfo.mat_template && userInfo.work_template
+                                  ? Number(this.state.mat_template.total) +
+                                    Number(this.state.work_template.total)
+                                  : 0}{" "}
+                                EUR{" "}
                               </b>
                             </div>
                           </div>
                         </div>
                         <div className="col-md-12">
-                          <div className="form-group">
+                          <div ref={this.myRefType} className="form-group">
                             <label className="mt-4 mb-3">
                               <b>{t("myagreement.how_paid")}</b>
                             </label>
@@ -1060,7 +1749,11 @@ class AgreementCreate extends Component {
                                 onClick={() =>
                                   this.setState({
                                     agreement_type: "project",
-                                    row_phase: [],
+                                    // row_phase:
+                                    //   this.props.match.params.draft !==
+                                    //   undefined
+                                    //     ? this.state.row_phase
+                                    //     : [],
                                   })
                                 }
                               />
@@ -1072,6 +1765,11 @@ class AgreementCreate extends Component {
                                 </span>
                               </label>
                             </div>
+                            <p style={{ color: "#eb516d " }}>
+                              {this.state.agreement_type_err === true
+                                ? "Agreement type is required"
+                                : null}
+                            </p>
                           </div>
                           <div className="form-group">
                             {this.state.agreement_type === "milestone" ? (
@@ -1080,8 +1778,8 @@ class AgreementCreate extends Component {
                               </label>
                             ) : null}
 
-                            {this.props.match.params.draft !==
-                            undefined ? null : (
+                            {this.props.match.params.draft !== undefined ||
+                            this.state.agreement_tender_draft === 1 ? null : (
                               <Row
                                 val={{
                                   des: "des",
@@ -1094,7 +1792,6 @@ class AgreementCreate extends Component {
                                 t={t}
                               />
                             )}
-
                             {this.state.row_phase.map((r, index) => (
                               <Row
                                 val={{
@@ -1135,7 +1832,9 @@ class AgreementCreate extends Component {
                               <h5 className="head5">
                                 {this.state.left}{" "}
                                 <span id="c_total">
-                                  {this.props.match.params.draft !== undefined
+                                  {this.props.match.params.draft !==
+                                    undefined ||
+                                  this.state.agreement_tender_draft === 1
                                     ? this.state.agreement_rate
                                     : "0.00"}
                                 </span>{" "}
@@ -1143,56 +1842,64 @@ class AgreementCreate extends Component {
                               </h5>
                             </div>
                           </div>
-                          <div className="row mb-3">
-                            <div className="col-sm-8">
-                              <h4 className="head4 mb-2">
-                                <span>
-                                  {this.state.configuration_val}%{" "}
-                                  {t("myagreement.flip_fee")}{" "}
-                                </span>
-                                <a href="#"> {t("myagreement.chk_terms")}</a>
-                              </h4>
-                              <p>&nbsp</p>
+                          {this.state.configuration_val > 0 ? (
+                            <div className="row mb-3">
+                              <div className="col-sm-8">
+                                <h4 className="head4 mb-2">
+                                  <span>
+                                    {this.state.configuration_val}%{" "}
+                                    {t("myagreement.flip_fee")}{" "}
+                                  </span>
+                                  <a href="#"> {t("myagreement.chk_terms")}</a>
+                                </h4>
+                                <p>&nbsp</p>
+                              </div>
+                              <div className="col-sm-4 text-sm-right">
+                                <input
+                                  type="hidden"
+                                  id="config"
+                                  value={this.state.configuration_val}
+                                />
+                                <h5 className="head5 fee">
+                                  {this.state.left}{" "}
+                                  <span id="per">
+                                    {this.props.match.params.draft !==
+                                      undefined ||
+                                    this.state.agreement_tender_draft === 1
+                                      ? this.state.agreement_service_fee
+                                      : "0.00"}
+                                  </span>{" "}
+                                  {this.state.right}
+                                </h5>
+                              </div>
                             </div>
-                            <div className="col-sm-4 text-sm-right">
-                              <input
-                                type="hidden"
-                                id="config"
-                                value={this.state.configuration_val}
-                              />
-                              <h5 className="head5 fee">
-                                {this.state.left}{" "}
-                                <span id="per">
-                                  {this.props.match.params.draft !== undefined
-                                    ? this.state.agreement_service_fee
-                                    : "0.00"}
-                                </span>{" "}
-                                {this.state.right}
-                              </h5>
+                          ) : null}
+                          {this.state.configuration_val > 0 ? (
+                            <div className="row mb-3">
+                              <div className="col-sm-8">
+                                <h4 className="head4 mb-2">
+                                  {t("myagreement.chk_terms_txt")}{" "}
+                                  <a href="#">
+                                    {t("myagreement.chk_terms_txt_terms")}
+                                  </a>
+                                </h4>
+                                <p>{t("myagreement.more_terms")}</p>
+                              </div>
+                              <div className="col-sm-4 text-sm-right">
+                                <h5 className="head5 est_pay">
+                                  {this.state.left}{" "}
+                                  <span id="1_est">
+                                    {this.props.match.params.draft !==
+                                      undefined ||
+                                    this.state.agreement_tender_draft === 1
+                                      ? this.state.agreement_estimated_payment
+                                      : "0.00"}
+                                  </span>{" "}
+                                  {this.state.right}
+                                </h5>
+                              </div>
                             </div>
-                          </div>
-                          <div className="row mb-3">
-                            <div className="col-sm-8">
-                              <h4 className="head4 mb-2">
-                                {t("myagreement.chk_terms_txt")}{" "}
-                                <a href="#">
-                                  {t("myagreement.chk_terms_txt_terms")}
-                                </a>
-                              </h4>
-                              <p>{t("myagreement.more_terms")}</p>
-                            </div>
-                            <div className="col-sm-4 text-sm-right">
-                              <h5 className="head5 est_pay">
-                                {this.state.left}{" "}
-                                <span id="1_est">
-                                  {this.props.match.params.draft !== undefined
-                                    ? this.state.agreement_estimated_payment
-                                    : "0.00"}
-                                </span>{" "}
-                                {this.state.right}
-                              </h5>
-                            </div>
-                          </div>
+                          ) : null}
                         </div>
                       </div>
                       <div className="hr mg-20"></div>
@@ -1338,7 +2045,7 @@ class AgreementCreate extends Component {
                   <h2 className="head2 my-4">
                     {t("myagreement.agreement_terms")}
                   </h2>
-                  <div className="row">
+                  <div ref={this.myRefTerms} className="row">
                     <div className="col-xl-5 col-lg-5 col-md-6">
                       <div className="form-group">
                         <label for="m-payment">{t("myproposal.mat_pay")}</label>
@@ -1355,6 +2062,11 @@ class AgreementCreate extends Component {
                           <option>As per inovice</option>
                           <option value="other">Custom message</option>
                         </select>
+                        <p style={{ color: "#eb516d " }}>
+                          {this.state.mat_pay_err === true
+                            ? "Payment is required"
+                            : null}
+                        </p>
                       </div>
                       <div
                         className="form-group"
@@ -1365,7 +2077,6 @@ class AgreementCreate extends Component {
                           onChange={this.handleChange2}
                           name="other"
                           className="form-control"
-                          placeholder="Other message"
                         ></textarea>
                       </div>
                       <div className="form-group">
@@ -1380,9 +2091,18 @@ class AgreementCreate extends Component {
                           className="form-control"
                         >
                           <option>--select--</option>
-                          <option>Payment aftre work</option>
-                          <option>Pay hourly</option>
+                          {this.state.agreement_terms === "fixed" ? (
+                            <option>Payment aftre work</option>
+                          ) : null}
+                          {this.state.agreement_terms === "hourly" ? (
+                            <option>Pay hourly</option>
+                          ) : null}
                         </select>
+                        <p style={{ color: "#eb516d " }}>
+                          {this.state.work_pay_err === true
+                            ? "Payment is required"
+                            : null}
+                        </p>
                       </div>
                       <div className="form-group">
                         <label for="transport-payment">
@@ -1399,20 +2119,40 @@ class AgreementCreate extends Component {
                           <option>included</option>
                           <option>Not included</option>
                         </select>
+                        <p style={{ color: "#eb516d " }}>
+                          {this.state.agreement_transport_payment_err === true
+                            ? "Transport payment is required"
+                            : null}
+                        </p>
                       </div>
                       <div className="form-group">
                         <label>{t("myagreement.client_resposibilities")}</label>
+
+                        {(this.props.match.params.customer !== undefined &&
+                          this.props.match.params.draft !== undefined) ||
+                        this.state.agreement_tender_draft === 1 ? (
+                          <p>{this.state.agreement_client_res}</p>
+                        ) : null}
+
                         <div id="client-resposibilities">
                           <select
                             name="agreement_client_res"
                             id="client-resposibilities"
                             className="form-control"
                           >
-                            <option value="Option 1">Option 1</option>
-                            <option value="Option 2">Option 2</option>
-                            <option value="Option 3">Option 3</option>
-                            <option value="Option 4">Option 4</option>
-                            <option value="Option 5">Option 5</option>
+                            <option value="Water">
+                              {t("agreement_vals.responsibilities.water")}
+                            </option>
+                            <option value="Timber">
+                              {t("agreement_vals.responsibilities.timber")}
+                            </option>
+                            <option value="Electricity">
+                              {t("agreement_vals.responsibilities.electricity")}
+                            </option>
+                            <option value="Plumbing">
+                              {t("agreement_vals.responsibilities.plumbing")}
+                            </option>
+                            <option value="etc">etc</option>
                             <option value="custom 1">Custom 1</option>
                           </select>
                           <input
@@ -1434,26 +2174,39 @@ class AgreementCreate extends Component {
                       >
                         <textarea
                           onChange={this.handleChange2}
-                          name="other"
+                          name="agreement_client_res_other"
                           className="form-control"
-                          placeholder="Other message"
+                          value={this.state.agreement_client_res_other}
                         ></textarea>
                       </div>
                       <div class="form-group">
                         <label>
                           {t("myagreement.contractor_resposibilities")}
                         </label>
+                        {(this.props.match.params.customer !== undefined &&
+                          this.props.match.params.draft !== undefined) ||
+                        this.state.agreement_tender_draft === 1 ? (
+                          <p>{this.state.agreement_contractor_res}</p>
+                        ) : null}
                         <div id="contractor-resposibilities">
                           <select
                             name="agreement_contractor_res"
                             id="contractor-resposibilities"
                             className="form-control"
                           >
-                            <option value="Option 1">Option 1</option>
-                            <option value="Option 2">Option 2</option>
-                            <option value="Option 3">Option 3</option>
-                            <option value="Option 4">Option 4</option>
-                            <option value="Option 5">Option 5</option>
+                            <option value="Water">
+                              {t("agreement_vals.responsibilities.water")}
+                            </option>
+                            <option value="Timber">
+                              {t("agreement_vals.responsibilities.timber")}
+                            </option>
+                            <option value="Electricity">
+                              {t("agreement_vals.responsibilities.electricity")}
+                            </option>
+                            <option value="Plumbing">
+                              {t("agreement_vals.responsibilities.plumbing")}
+                            </option>
+                            <option value="etc">etc</option>
                             <option value="custom">Custom</option>
                           </select>
                           <input
@@ -1475,26 +2228,31 @@ class AgreementCreate extends Component {
                       >
                         <textarea
                           onChange={this.handleChange2}
-                          name="other"
+                          name="agreement_contractor_res_other"
                           className="form-control"
-                          placeholder="Other message"
+                          value={this.state.agreement_contractor_res_other}
                         ></textarea>
                       </div>
                       <div className="form-group">
                         <label for="legal-agreement">
                           {t("myagreement.legal_agreement_category")}
                         </label>
+                        <p>{this.state.agreement_legal_category}</p>
                         <div id="legal-agreement">
                           <select
-                            value={this.state.agreement_legal_category}
-                            onChange={this.handleChange2}
                             name="agreement_legal_category"
                             id="legal-agreement"
                             className="form-control"
                           >
-                            <option value="Timber">Timber</option>
-                            <option value="electricity">electricity</option>
-                            <option value="Plumbing">Plumbing</option>
+                            <option value="Timber">
+                              {t("agreement_vals.legal.timber")}
+                            </option>
+                            <option value="Electricity">
+                              {t("agreement_vals.legal.electricity")}
+                            </option>
+                            <option value="Plumbing">
+                              {t("agreement_vals.legal.plumbing")}
+                            </option>
                             <option value="etc">etc</option>
                           </select>
                           <input
@@ -1509,11 +2267,15 @@ class AgreementCreate extends Component {
                           />
                         </div>
                       </div>
-                      <div className="form-group">
-                        <div className="form-check form-check-inline">
+
+                      <div className="form-group" id="check_con">
+                        <div
+                          className="form-check form-check-inline"
+                          id="klon1"
+                        >
                           <input
                             className="form-check-input"
-                            id="agreement-issues"
+                            id=""
                             type="checkbox"
                           />
                           <label
@@ -1523,26 +2285,7 @@ class AgreementCreate extends Component {
                             <div className="mb-2">
                               {t("myagreement.agreement_general_legal_issues")}
                             </div>
-                            <small>
-                              {t("myagreement.agreement_general_legal_issues")}{" "}
-                              <a href="#">
-                                {t("myagreement.chk_terms_txt_terms")}
-                              </a>
-                            </small>
-                            <br />
-                            <small>
-                              {t("myagreement.agreement_general_legal_issues")}{" "}
-                              <a href="#">
-                                {t("myagreement.chk_terms_txt_terms")}
-                              </a>
-                            </small>
-                            <br />
-                            <small>
-                              {t("myagreement.agreement_general_legal_issues")}{" "}
-                              <a href="#">
-                                {t("myagreement.chk_terms_txt_terms")}
-                              </a>
-                            </small>
+
                             <br />
                           </label>
                         </div>
@@ -1561,6 +2304,11 @@ class AgreementCreate extends Component {
                           id="materials"
                           className="form-control"
                         ></textarea>
+                        <p style={{ color: "#eb516d " }}>
+                          {this.state.agreement_material_guarantee_err === true
+                            ? "Guarantee is required"
+                            : null}
+                        </p>
                       </div>
                       <div className="form-group">
                         <label for="work-quarantees">
@@ -1574,19 +2322,29 @@ class AgreementCreate extends Component {
                           id="work-quarantees"
                           className="form-control"
                         ></textarea>
+                        <p style={{ color: "#eb516d " }}>
+                          {this.state.agreement_work_guarantee_err === true
+                            ? "Guarantee is required"
+                            : null}
+                        </p>
                       </div>
                       <div className="form-group">
                         <label for="agreement-insurances">
                           {t("myagreement.agreement_insurances")}
                         </label>
                         <input
-                          value={this.state.insurance}
+                          value={this.state.agreement_insurances}
                           type="text"
                           onChange={this.handleChange2}
-                          name="insurance"
+                          name="agreement_insurances"
                           id="agreement-insurances"
                           className="form-control"
                         />
+                        <p style={{ color: "#eb516d " }}>
+                          {this.state.agreement_insurances_err === true
+                            ? "Insurance is required"
+                            : null}
+                        </p>
                       </div>
                       <div className="form-group">
                         <label for="panelty-terms">
@@ -1599,11 +2357,15 @@ class AgreementCreate extends Component {
                           style={{ height: "70px" }}
                           id="panelty-terms"
                           className="form-control"
-                          placeholder="Per day delay will cost 0.5%  to the contractor"
                         ></textarea>
                         <small className="form-text text-muted">
                           mention the delay terms
                         </small>
+                        <p style={{ color: "#eb516d " }}>
+                          {this.state.agreement_panelty_err === true
+                            ? "Penalty is required"
+                            : null}
+                        </p>
                       </div>
                       <div className="form-group">
                         <label for="a-work-price">
@@ -1626,7 +2388,8 @@ class AgreementCreate extends Component {
                     <div className="col-xl-10 col-lg-11">
                       <div className="form-group">
                         <label>{t("myagreement.attachments")}</label>
-                        <div className="file-select inline">
+
+                        <div className="file-select attachment">
                           <input
                             onChange={this.handleChange7}
                             type="file"
@@ -1634,42 +2397,41 @@ class AgreementCreate extends Component {
                             name="attachments"
                           />
                           <label for="attachments">
-                            <img src={File} />
-                            <span className="status">
-                              {t("myagreement.upload_agreement_files")}
+                            <i className="icon-attachment"></i>
+                            <span
+                              className="filename font-weight-bold"
+                              data-text="Attach File"
+                            >
+                              Upload attachments
+                            </span>
+                            <span
+                              onClick={this.handleAttachmentRemove}
+                              className="clear"
+                            >
+                              +
                             </span>
                           </label>
                         </div>
-                        <label for="attachments">
-                          <a
-                            href={
-                              url +
-                              "/images/marketplace/agreement/" +
-                              this.state.attachment_pre
-                            }
-                            target="_blank"
-                            class="attachment"
-                          >
-                            <i class="icon-paperclip"></i>
-                            {this.state.attachment_pre}
-                          </a>
-                        </label>
+
+                        {this.state.attachment_pre ? (
+                          <label for="attachments">
+                            <a
+                              href={
+                                url +
+                                "/images/marketplace/agreement/" +
+                                this.state.attachment_pre
+                              }
+                              target="_blank"
+                              class="attachment"
+                            >
+                              <i class="icon-paperclip"></i>
+                              {this.state.attachment_pre}
+                            </a>
+                          </label>
+                        ) : null}
                         <p className="form-text text-muted">
                           {t("myagreement.legal_txt")}
                         </p>
-                      </div>
-
-                      <div className="form-group">
-                        <label for="name">{t("myproposal.name")}</label>
-                        <input
-                          id="name"
-                          className="form-control"
-                          type="text"
-                          name="name"
-                          value={this.state.name}
-                          onChange={this.handleChange2}
-                          placeholder="Enter name"
-                        />
                       </div>
                     </div>
 
@@ -1687,9 +2449,10 @@ class AgreementCreate extends Component {
                         data-toggle="modal"
                         data-target="#preview-info"
                       >
-                        Preview Proposal
+                        Preview Agreement
                       </button>
-                      {this.props.match.params.draft !== undefined ? (
+                      {this.props.match.params.draft !== undefined ||
+                      this.state.agreement_tender_draft === 1 ? (
                         <button
                           onClick={this.handleUpdate}
                           class="btn btn-sm btn-gray mr-3 mb-3 mb-sm-0 clk2"
@@ -1706,35 +2469,17 @@ class AgreementCreate extends Component {
                           Save as a draft
                         </button>
                       )}
+
+                      {/* {loading ? (
+                        loading
+                      ) : ( */}
                       <button
-                        onClick={() => this.handleSubmit(1)}
+                        onClick={(e) => this.handleSubmit(e, 1)}
                         className="btn btn-primary mb-md-0 mb-4 clk2"
                       >
                         Submit &amp; Send
                       </button>
-
-                      {this.state.agreement_client_type === "resource" ? (
-                        <span>
-                          <button
-                            onClick={() => this.handleSubmit(2)}
-                            className="btn btn-sm btn-gray mb-3 mr-4 mb-sm-0 clk2"
-                          >
-                            Accept
-                          </button>
-                          <button
-                            onClick={() => this.handleSubmit(3)}
-                            className="btn btn-sm btn-gray mb-3 mr-4 mb-sm-0 clk2"
-                          >
-                            Decline
-                          </button>
-                          <button
-                            onClick={() => this.handleSubmit(4)}
-                            className="btn btn-sm btn-gray mb-3 mr-4 mb-sm-0 clk2"
-                          >
-                            Revise
-                          </button>
-                        </span>
-                      ) : null}
+                      {/* )} */}
                     </div>
                   </div>
                 </div>
@@ -1743,7 +2488,7 @@ class AgreementCreate extends Component {
 
             <BusinessInfo onInfo={this.handleBusinessInfo} />
             <RatingModal />
-
+            <AddCustomer addCus={this.addCustomer} />
             <PDFViewAgreement
               businessInfo={this.state.business_info}
               userInfo={userInfo}
@@ -1754,22 +2499,27 @@ class AgreementCreate extends Component {
     );
   }
 }
+var yesterday = moment().subtract(1, "day");
+function valid(current) {
+  return current.isAfter(yesterday);
+}
 
 const Row = (props) => (
   <div className="row">
     <div className="col" style={{ flexGrow: "0" }}>
-      {props.val2.amount ? (
+      {props.val2.amount && props.ind >= 1 ? (
         <button
           style={{ borderRadius: "50px" }}
-          class="btn btn-dark remove-input"
+          class="btn-dark remove-input"
           id="myRemoveinput"
         >
           X
         </button>
       ) : null}
+
       <div className="form-group">
         <label>&nbsp;</label>
-        <p className="form-text">{props.ind}</p>
+        <p className="form-text"></p>
       </div>
     </div>
     <div className="col">
@@ -1784,6 +2534,7 @@ const Row = (props) => (
               className="form-control"
               name={props.val.des}
               placeholder={props.val2.des}
+              // value={props.val2.des}
             />
           </div>
         </div>
@@ -1797,6 +2548,7 @@ const Row = (props) => (
                 <div className="input-group">
                   <Datetime
                     name={props.val.due_date}
+                    isValidDate={valid}
                     dateFormat="DD-MM-YYYY"
                     timeFormat={false}
                     defaultValue={props.val2.due_date}
@@ -1819,6 +2571,7 @@ const Row = (props) => (
                     type="text"
                     className="form-control text-right my-input"
                     placeholder={props.val2.amount}
+                    // value={props.val2.amount}
                     name={props.val.amount}
                   />
                   <div className="input-group-prepend">

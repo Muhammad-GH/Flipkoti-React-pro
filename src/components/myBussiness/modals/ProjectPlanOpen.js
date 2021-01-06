@@ -5,7 +5,7 @@ import { Helper, url } from "../../../helper/helper";
 class ProjectPlanOpen extends Component {
   state = {
     template_names: [],
-    name: '',
+    name: "",
   };
 
   componentDidMount = () => {
@@ -13,14 +13,13 @@ class ProjectPlanOpen extends Component {
   };
 
   handleName = (event) => {
-      this.setState({name: event.target.value})
-  }
-  
+    this.setState({ name: event.target.value });
+  };
+
   SendName = () => {
     this.props.onSelectedName(this.state.name);
-  }
-  
-  
+  };
+
   loadNames = async () => {
     const token = await localStorage.getItem("token");
     const response = await axios.get(`${url}/api/pro-plan/names/all`, {
@@ -34,6 +33,11 @@ class ProjectPlanOpen extends Component {
   };
 
   render() {
+    const options = this.state.template_names
+      ? this.state.template_names.map(({ template_name }, index) => (
+          <option value={template_name}>{template_name}</option>
+        ))
+      : [];
     return (
       <div>
         <div
@@ -57,15 +61,13 @@ class ProjectPlanOpen extends Component {
                       </div>
                     </div>
                     <div className="form-group ">
-                      <select onChange={this.handleName} name="type" class="form-control">
+                      <select
+                        onChange={this.handleName}
+                        name="type"
+                        class="form-control"
+                      >
                         <option>--Name--</option>
-                        {this.state.template_names.map(
-                          ({ template_name }, index) => (
-                            <option value={template_name}>
-                              {template_name}
-                            </option>
-                          )
-                        )}
+                        {options}
                       </select>
                     </div>
                     <button

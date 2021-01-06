@@ -9,11 +9,14 @@ import { withTranslation } from "react-i18next";
 import { HashRouter as Router, Link } from "react-router-dom";
 
 class Materiallisitngs extends Component {
+  materials_search = [];
+
   constructor(props) {
     super(props);
     this.state = {
       role: "",
       materials: [],
+      productcats: [],
       productcat: "",
       search: null,
       checked: true,
@@ -23,6 +26,12 @@ class Materiallisitngs extends Component {
   }
 
   componentDidMount = async () => {
+    this.loadData();
+    this.loadConfig();
+    this.loadCategory();
+  };
+
+  loadData = async () => {
     const token = await localStorage.getItem("token");
     axios
       .get(`${url}/api/material-list`, {
@@ -32,13 +41,12 @@ class Materiallisitngs extends Component {
       })
       .then((result) => {
         const { role, data } = result.data;
+        this.materials_search = data;
         this.setState({ role, materials: data });
       })
       .catch((err) => {
         console.log(err);
       });
-
-    this.loadConfig();
   };
 
   loadConfig = async () => {
@@ -58,21 +66,45 @@ class Materiallisitngs extends Component {
       });
   };
 
+  loadCategory = async () => {
+    // if (this._isMounted) {
+    const token = await localStorage.getItem("token");
+    axios
+      .get(`${url}/api/category`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        // cancelToken: axiosCancelSource.token,
+      })
+      .then((result) => {
+        this.setState({ productcats: result.data.data });
+      })
+      .catch((err) => {
+        // if (axios.isCancel(err)) {
+        //   // console.log("Request canceled", err.message);
+        // } else {
+        console.log(err.response);
+        // }
+      });
+    // }
+  };
+
   searchSpace = (event) => {
     let keyword = event.target.value;
     this.setState({ search: keyword });
   };
 
   handleChange = (event) => {
+    this.setState({ materials: this.materials_search });
     this.setState({ productcat: event.target.value }, () => {
       if (this.state.productcat == "--Select--") {
-        window.location.reload();
+        this.loadData();
       }
-      this.setState({
-        materials: this.state.materials.filter((data) => {
-          return data.tender_category_type.includes(this.state.productcat);
+      this.setState((prevstate) => ({
+        materials: prevstate.materials.filter((data) => {
+          return data.category.includes(this.state.productcat);
         }),
-      });
+      }));
     });
   };
 
@@ -84,7 +116,7 @@ class Materiallisitngs extends Component {
           return data.tender_type.includes("Offer");
         }),
       });
-    } else window.location.reload(false);
+    } else this.loadData();
   };
 
   handleCheck1 = (params) => {
@@ -95,23 +127,78 @@ class Materiallisitngs extends Component {
           return data.tender_type.includes("Request");
         }),
       });
-    } else window.location.reload(false);
+    } else this.loadData();
   };
 
   render() {
     const { t, i18n } = this.props;
 
-    const items = this.state.materials.filter((data) => {
-      if (this.state.search == null) return data;
-      else if (
-        data.tender_type
-          .toLowerCase()
-          .includes(this.state.search.toLowerCase()) ||
-        data.tender_type.toLowerCase().includes(this.state.search.toLowerCase())
-      ) {
-        return data;
-      }
-    });
+    const productLoop = this.state.productcats
+      ? this.state.productcats.map(({ category_id, category_name }, index) => (
+          <option value={category_name}>{category_name}</option>
+        ))
+      : [];
+
+    const items = this.state.materials
+      ? this.state.materials.filter((data) => {
+          if (this.state.search == null) return data;
+          else if (
+            data.tender_type
+              .toLowerCase()
+              .includes(this.state.search.toLowerCase()) ||
+            data.tender_title
+              .toLowerCase()
+              .includes(this.state.search.toLowerCase())
+          ) {
+            return data;
+          }
+        })
+      : [];
+
+    const itemsList = items
+      ? items.map((material) => (
+          <tr key={material.tender_id}>
+            <td style={{ width: "50px" }}>
+              <div className="form-check">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  id="check2"
+                />
+                <label className="form-check-label" htmlFor="check2"></label>
+              </div>
+            </td>
+            <td data-label="Type: ">{material.tender_title}</td>
+            <td data-label="Type: ">{material.tender_type}</td>
+            <td data-label="Start Date: ">{material.created_at}</td>
+            <td data-label="End Date: ">
+              {material.tender_expiry_date.substring(0, 24)}
+            </td>
+            <td>
+              {moment(material.tender_expiry_date).isBefore(moment()._d) ? (
+                <span className="badge badge-warning">Expired</span>
+              ) : (
+                <span className="badge badge-primary">Posted</span>
+              )}
+            </td>
+            <td data-label="Current bid: ">
+              {material.quote
+                ? `${this.state.left} ${material.quote} ${this.state.right}`
+                : `${this.state.left} 0.00  ${this.state.right}`}
+            </td>
+            <td data-label="View: ">
+              <Link
+                to={{
+                  pathname: `/listing-detail/${material.tender_id}`,
+                }}
+                className="btn btn-info"
+              >
+                Details
+              </Link>
+            </td>
+          </tr>
+        ))
+      : [];
 
     return (
       <div>
@@ -119,9 +206,13 @@ class Materiallisitngs extends Component {
         <div className="sidebar-toggle"></div>
         <nav aria-label="breadcrumb">
           <ol className="breadcrumb">
-            <li className="breadcrumb-item active" aria-current="page">
+            <Link
+              to="/feeds"
+              className="breadcrumb-item active"
+              aria-current="page"
+            >
               {t("header.marketplace")}
-            </li>
+            </Link>
             <li className="breadcrumb-item active" aria-current="page">
               {t("c_material_list.listing.material_listings")}
             </li>
@@ -161,8 +252,7 @@ class Materiallisitngs extends Component {
                             className="form-control"
                           >
                             <option>--Select--</option>
-                            <option>Material</option>
-                            <option>Work</option>
+                            {productLoop}
                           </select>
                         </div>
                       </div>
@@ -234,7 +324,7 @@ class Materiallisitngs extends Component {
                               ></label>
                             </div>
                           </th>
-                          <th>{t("c_material_list.listing.ref")}#</th>
+                          <th>{t("c_material_list.listing.title")}</th>
                           <th>{t("c_material_list.listing.type")}</th>
                           <th>{t("c_material_list.listing.start_date")}</th>
                           <th>{t("c_material_list.listing.end_date")}</th>
@@ -243,61 +333,7 @@ class Materiallisitngs extends Component {
                           <th>{t("c_material_list.listing.view")}</th>
                         </tr>
                       </thead>
-                      <tbody>
-                        {items.map((material) => (
-                          <tr key={material.tender_id}>
-                            <td style={{ width: "50px" }}>
-                              <div className="form-check">
-                                <input
-                                  type="checkbox"
-                                  className="form-check-input"
-                                  id="check2"
-                                />
-                                <label
-                                  className="form-check-label"
-                                  htmlFor="check2"
-                                ></label>
-                              </div>
-                            </td>
-                            <td data-label="REF#: ">{material.tender_id}</td>
-                            <td data-label="Type: ">{material.tender_type}</td>
-                            <td data-label="Start Date: ">
-                              {material.created_at}
-                            </td>
-                            <td data-label="End Date: ">
-                              {material.tender_expiry_date.substring(0, 24)}
-                            </td>
-                            <td>
-                              {moment(material.tender_expiry_date).isBefore(
-                                moment()._d
-                              ) ? (
-                                <span className="badge badge-warning">
-                                  Expired
-                                </span>
-                              ) : (
-                                <span className="badge badge-primary">
-                                  Posted
-                                </span>
-                              )}
-                            </td>
-                            <td data-label="Current bid: ">
-                              {material.quote
-                                ? `${this.state.left} ${material.quote} ${this.state.right}`
-                                : `${this.state.left} 0.00  ${this.state.right}`}
-                            </td>
-                            <td data-label="View: ">
-                              <Link
-                                to={{
-                                  pathname: `/listing-detail/${material.tender_id}`,
-                                }}
-                                className="btn btn-info"
-                              >
-                                Details
-                              </Link>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
+                      <tbody>{itemsList}</tbody>
                     </table>
                   </div>
                 </div>

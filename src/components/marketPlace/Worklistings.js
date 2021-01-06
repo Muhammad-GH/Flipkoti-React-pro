@@ -9,52 +9,101 @@ import { HashRouter as Router, Link } from "react-router-dom";
 import { withTranslation } from "react-i18next";
 
 class Worklistings extends Component {
+  materials_search = [];
+
   constructor(props) {
     super(props);
     this.state = {
       role: "",
       works: [],
+      productcats: [],
       productcat: "",
       search: null,
       checked: true,
       left: null,
       right: null,
     };
+    this.loadConfig = this.loadConfig.bind(this);
   }
 
   componentDidMount = async () => {
+    this._isMounted = true;
+    this.axiosCancelSource = axios.CancelToken.source();
+
+    this.loadData(this.axiosCancelSource);
+    this.loadConfig(this.axiosCancelSource);
+    this.loadCategory(this.axiosCancelSource);
+  };
+
+  loadData = async (axiosCancelSource) => {
     const token = await localStorage.getItem("token");
     axios
       .get(`${url}/api/work-list`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        cancelToken: axiosCancelSource.token,
       })
       .then((result) => {
-        const { role, data } = result.data;
-        this.setState({ role, works: data });
+        if (this._isMounted) {
+          const { role, data } = result.data;
+          this.materials_search = data;
+          this.setState({ role, works: data });
+        }
       })
       .catch((err) => {
-        console.log(err);
+        if (axios.isCancel(err)) {
+          console.log("Request canceled", err.message);
+        } else {
+          console.log(err.response);
+        }
       });
-
-    this.loadConfig();
   };
 
-  loadConfig = async () => {
+  loadCategory = async (axiosCancelSource) => {
+    if (this._isMounted) {
+      const token = await localStorage.getItem("token");
+      axios
+        .get(`${url}/api/category`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cancelToken: axiosCancelSource.token,
+        })
+        .then((result) => {
+          this.setState({ productcats: result.data.data });
+        })
+        .catch((err) => {
+          if (axios.isCancel(err)) {
+            // console.log("Request canceled", err.message);
+          } else {
+            console.log(err.response);
+          }
+        });
+    }
+  };
+
+  loadConfig = async (axiosCancelSource) => {
     const token = await localStorage.getItem("token");
     axios
       .get(`${url}/api/config/currency`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        cancelToken: axiosCancelSource.token,
       })
       .then((result) => {
-        const { left, right } = result.data;
-        this.setState({ left, right });
+        if (this._isMounted) {
+          const { left, right } = result.data;
+          this.setState({ left, right });
+        }
       })
       .catch((err) => {
-        console.log(err);
+        if (axios.isCancel(err)) {
+          console.log("Request canceled", err.message);
+        } else {
+          console.log(err.response);
+        }
       });
   };
 
@@ -64,15 +113,16 @@ class Worklistings extends Component {
   };
 
   handleChange = (event) => {
+    this.setState({ works: this.materials_search });
     this.setState({ productcat: event.target.value }, () => {
       if (this.state.productcat == "--Select--") {
-        window.location.reload();
+        this.loadData(this.axiosCancelSource);
       }
-      this.setState({
-        works: this.state.works.filter((data) => {
-          return data.tender_category_type.includes(this.state.productcat);
+      this.setState((prevstate) => ({
+        works: prevstate.works.filter((data) => {
+          return data.category.includes(this.state.productcat);
         }),
-      });
+      }));
     });
   };
 
@@ -84,7 +134,7 @@ class Worklistings extends Component {
           return data.tender_type.includes("Offer");
         }),
       });
-    } else window.location.reload(false);
+    } else this.loadData(this.axiosCancelSource);
   };
 
   handleCheck1 = (params) => {
@@ -95,23 +145,72 @@ class Worklistings extends Component {
           return data.tender_type.includes("Request");
         }),
       });
-    } else window.location.reload(false);
+    } else this.loadData(this.axiosCancelSource);
   };
 
   render() {
     const { t, i18n } = this.props;
 
-    const items = this.state.works.filter((data) => {
-      if (this.state.search == null) return data;
-      else if (
-        data.tender_type
-          .toLowerCase()
-          .includes(this.state.search.toLowerCase()) ||
-        data.tender_type.toLowerCase().includes(this.state.search.toLowerCase())
-      ) {
-        return data;
-      }
-    });
+    const productLoop = this.state.productcats
+      ? this.state.productcats.map(({ category_id, category_name }, index) => (
+          <option value={category_name}>{category_name}</option>
+        ))
+      : [];
+
+    const items = this.state.works
+      ? this.state.works.filter((data) => {
+          if (this.state.search == null) return data;
+          else if (
+            data.tender_type
+              .toLowerCase()
+              .includes(this.state.search.toLowerCase()) ||
+            data.tender_title
+              .toLowerCase()
+              .includes(this.state.search.toLowerCase())
+          ) {
+            return data;
+          }
+        })
+      : [];
+
+    const itemsList = items.map((work) => (
+      <tr key={work.tender_id}>
+        <td style={{ width: "50px" }}>
+          <div className="form-check">
+            <input type="checkbox" className="form-check-input" id="check2" />
+            <label className="form-check-label" htmlFor="check2"></label>
+          </div>
+        </td>
+        <td data-label="Type: ">{work.tender_title}</td>
+        <td data-label="Type: ">{work.tender_type}</td>
+        <td data-label="Start Date: ">{work.created_at}</td>
+        <td data-label="End Date: ">
+          {work.tender_expiry_date.substring(0, 24)}
+        </td>
+        <td>
+          {moment(work.tender_expiry_date).isBefore(moment()._d) ? (
+            <span className="badge badge-warning">Expired</span>
+          ) : (
+            <span className="badge badge-primary">Posted</span>
+          )}
+        </td>
+        <td data-label="Current bid: ">
+          {work.quote
+            ? `${this.state.left} ${work.quote} ${this.state.right}`
+            : `${this.state.left} 0.00 ${this.state.right}`}
+        </td>
+        <td data-label="View: ">
+          <Link
+            to={{
+              pathname: `/listing-detail/${work.tender_id}`,
+            }}
+            className="btn btn-info"
+          >
+            Details
+          </Link>
+        </td>
+      </tr>
+    ));
 
     return (
       <div>
@@ -119,9 +218,13 @@ class Worklistings extends Component {
         <div className="sidebar-toggle"></div>
         <nav aria-label="breadcrumb">
           <ol className="breadcrumb">
-            <li className="breadcrumb-item active" aria-current="page">
+            <Link
+              to="/feeds"
+              className="breadcrumb-item active"
+              aria-current="page"
+            >
               {t("header.marketplace")}
-            </li>
+            </Link>
             <li className="breadcrumb-item active" aria-current="page">
               {t("header.marketplace")}
             </li>
@@ -161,8 +264,7 @@ class Worklistings extends Component {
                             className="form-control"
                           >
                             <option>--Select--</option>
-                            <option>Material</option>
-                            <option>Work</option>
+                            {productLoop}
                           </select>
                         </div>
                       </div>
@@ -234,7 +336,7 @@ class Worklistings extends Component {
                               ></label>
                             </div>
                           </th>
-                          <th>{t("c_material_list.listing.ref")}#</th>
+                          <th>{t("c_material_list.listing.title")}</th>
                           <th>{t("c_material_list.listing.type")}</th>
                           <th>{t("c_material_list.listing.start_date")}</th>
                           <th>{t("c_material_list.listing.end_date")}</th>
@@ -243,59 +345,7 @@ class Worklistings extends Component {
                           <th>{t("c_material_list.listing.view")}</th>
                         </tr>
                       </thead>
-                      <tbody>
-                        {items.map((work) => (
-                          <tr key={work.tender_id}>
-                            <td style={{ width: "50px" }}>
-                              <div className="form-check">
-                                <input
-                                  type="checkbox"
-                                  className="form-check-input"
-                                  id="check2"
-                                />
-                                <label
-                                  className="form-check-label"
-                                  htmlFor="check2"
-                                ></label>
-                              </div>
-                            </td>
-                            <td data-label="REF#: ">{work.tender_id}</td>
-                            <td data-label="Type: ">{work.tender_type}</td>
-                            <td data-label="Start Date: ">{work.created_at}</td>
-                            <td data-label="End Date: ">
-                              {work.tender_expiry_date.substring(0, 24)}
-                            </td>
-                            <td>
-                              {moment(work.tender_expiry_date).isBefore(
-                                moment()._d
-                              ) ? (
-                                <span className="badge badge-warning">
-                                  Expired
-                                </span>
-                              ) : (
-                                <span className="badge badge-primary">
-                                  Posted
-                                </span>
-                              )}
-                            </td>
-                            <td data-label="Current bid: ">
-                              {work.quote
-                                ? `${this.state.left} ${work.quote} ${this.state.right}`
-                                : `${this.state.left} 0.00 ${this.state.right}`}
-                            </td>
-                            <td data-label="View: ">
-                              <Link
-                                to={{
-                                  pathname: `/listing-detail/${work.tender_id}`,
-                                }}
-                                className="btn btn-info"
-                              >
-                                Details
-                              </Link>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
+                      <tbody>{itemsList}</tbody>
                     </table>
                   </div>
                 </div>

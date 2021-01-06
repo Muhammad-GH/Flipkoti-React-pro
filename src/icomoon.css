@@ -37,6 +37,9 @@
 .icon-add:before {
   content: "\e903";
 }
+.icon-user:before {
+  content: "\e902";
+}
 .icon-link:before {
   content: "\e904";
 }

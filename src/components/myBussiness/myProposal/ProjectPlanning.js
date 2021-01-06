@@ -6,6 +6,7 @@ import BussinessSidebar from "../../shared/BussinessSidebar";
 import ProjectPlanModal from "../modals/ProjectPlanModal";
 import ProjectPlanOpen from "../modals/ProjectPlanOpen";
 import { withTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 
 class ProjectPlanning extends Component {
   state = {
@@ -27,10 +28,17 @@ class ProjectPlanning extends Component {
     loaded: 0,
     template_name: "",
     id: 0,
+
+    left: null,
+    right: null,
   };
 
   componentDidMount = () => {
-    this.loadArea();
+    this._isMounted = true;
+    this.axiosCancelSource = axios.CancelToken.source();
+
+    this.loadArea(this.axiosCancelSource);
+    this.loadConfig(this.axiosCancelSource);
   };
 
   componentDidUpdate(prevProps, prevState) {
@@ -39,11 +47,72 @@ class ProjectPlanning extends Component {
     }
   }
 
+  componentWillUnmount() {
+    this._isMounted = false;
+    this.axiosCancelSource.cancel();
+  }
+
   handleTemplate = (value) => {
-    this.setState({ loaded: 1, template_name: value });
+    this.setState((prevState) => {
+      return {
+        loaded: prevState.loaded + 1,
+        template_name: value,
+      };
+    });
   };
 
-  saveData = async () => {
+  deleteRow = (index) => {
+    var row_phase = [...this.state.row_phase];
+    row_phase.splice(index, 1);
+    this.setState({ row_phase });
+  };
+
+  reset = () => {
+    this.setState({
+      rows: [],
+      row_phase: [],
+      phase: "",
+      items: "",
+      est_time: 0,
+      sub_total: 0,
+      tax: 0,
+      profit: 0,
+      tax_calc: 0,
+      profit_calc: 0,
+      items_cost: 0,
+      total: 0,
+      type: "",
+      loaded: 0,
+      template_name: "",
+      id: 0,
+    });
+  };
+
+  loadConfig = async (axiosCancelSource) => {
+    const token = await localStorage.getItem("token");
+    axios
+      .get(`${url}/api/config/currency`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        cancelToken: axiosCancelSource.token,
+      })
+      .then((result) => {
+        if (this._isMounted) {
+          const { left, right } = result.data;
+          this.setState({ left, right });
+        }
+      })
+      .catch((err) => {
+        if (axios.isCancel(err)) {
+          console.log("Request canceled", err.message);
+        } else {
+          console.log(err.response);
+        }
+      });
+  };
+
+  saveData = async (event) => {
     this.setState({
       items: this.itemsInput.value,
       est_time: this.est_timeInput.value,
@@ -81,14 +150,17 @@ class ProjectPlanning extends Component {
         },
       })
       .then((res) => {
-        this.setState({ error: false, msg: "Updated successfully!" });
+        this.setState({
+          error: false,
+          msg: "Updated successfully!",
+        });
         alert(this.state.msg);
         window.location.reload();
       })
       .catch((err) => {
         this.setState({ error: true, msg: err.response.data.error });
         alert("Error occured");
-        window.location.reload();
+        // window.location.reload();
       });
   };
 
@@ -131,21 +203,24 @@ class ProjectPlanning extends Component {
     }
   };
 
-  loadArea = async () => {
+  loadArea = async (axiosCancelSource) => {
     const token = await localStorage.getItem("token");
     let lang = localStorage.getItem("_lng");
     const response = await axios.get(`${url}/api/pro-plan/area/${lang}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
+      cancelToken: axiosCancelSource.token,
     });
     if (response.status === 200) {
-      this.setState({ area: response.data.data });
+      if (this._isMounted) {
+        this.setState({ area: response.data.data });
+      }
     }
   };
 
   changePhase = (event) => {
-    this.setState({ phases: [] });
+    this.setState({ phases: [], phase: "" });
     const token = localStorage.getItem("token");
     let lang = localStorage.getItem("_lng");
     axios
@@ -163,10 +238,15 @@ class ProjectPlanning extends Component {
   };
 
   handleSelect = (event) => {
-    this.setState({ phase: event.target.value });
+    if (event.target.value !== "--Select--") {
+      this.setState({ phase: event.target.value });
+    } else {
+      this.setState({ phase: "" });
+    }
   };
 
-  removeTemplate = async (id) => {
+  removeTemplate = async (e, id) => {
+    e.preventDefault();
     const token = await localStorage.getItem("token");
     const response = await axios.delete(`${url}/api/pro-plan/delete/${id}`, {
       headers: {
@@ -215,12 +295,22 @@ class ProjectPlanning extends Component {
         <div className="sidebar-toggle"></div>
         <nav aria-label="breadcrumb">
           <ol className="breadcrumb">
-            <li className="breadcrumb-item ">{t("mycustomer.heading")}</li>
-            <li className="breadcrumb-item ">
+            <Link
+              to="/business-dashboard"
+              className="breadcrumb-item active"
+              aria-current="page"
+            >
+              {t("mycustomer.heading")}
+            </Link>
+            <Link
+              to="/proposal-listing"
+              className="breadcrumb-item active"
+              aria-current="page"
+            >
               {t("b_sidebar.proposal.proposal")}
-            </li>
+            </Link>
             <li className="breadcrumb-item active" aria-current="page">
-              {t("project_planning.heading")}
+              {t("c_material_list.listing.create")}
             </li>
           </ol>
         </nav>
@@ -304,13 +394,15 @@ class ProjectPlanning extends Component {
                             className="form-control"
                           >
                             <option>--Select--</option>
-                            {this.state.area.map(
-                              ({ area_id, area_identifier }, index) => (
-                                <option value={area_id}>
-                                  {area_identifier}
-                                </option>
-                              )
-                            )}
+                            {this.state.area
+                              ? this.state.area.map(
+                                  ({ area_id, area_identifier }, index) => (
+                                    <option value={area_id}>
+                                      {area_identifier}
+                                    </option>
+                                  )
+                                )
+                              : []}
                           </select>
                         </div>
                       </div>
@@ -324,17 +416,19 @@ class ProjectPlanning extends Component {
                               className="form-control"
                             >
                               <option>--Select--</option>
-                              {this.state.phases.map(
-                                ({ aw_id, aw_identifier }, index) => {
-                                  if (aw_id !== undefined) {
-                                    return (
-                                      <option value={aw_identifier}>
-                                        {aw_identifier}
-                                      </option>
-                                    );
-                                  }
-                                }
-                              )}
+                              {this.state.phases
+                                ? this.state.phases.map(
+                                    ({ aw_id, aw_identifier }, index) => {
+                                      if (aw_id !== undefined) {
+                                        return (
+                                          <option value={aw_identifier}>
+                                            {aw_identifier}
+                                          </option>
+                                        );
+                                      }
+                                    }
+                                  )
+                                : []}
                             </select>
                             <button
                               onClick={this.handleAppend}
@@ -343,10 +437,10 @@ class ProjectPlanning extends Component {
                               Add
                             </button>
 
-                            {this.state.loaded === 1 ? (
+                            {this.state.loaded > 0 ? (
                               <button
-                                onClick={() =>
-                                  this.removeTemplate(this.state.id)
+                                onClick={(e) =>
+                                  this.removeTemplate(e, this.state.id)
                                 }
                                 className="btn btn-danger"
                               >
@@ -370,24 +464,8 @@ class ProjectPlanning extends Component {
                               {t("project_planning.template")}
                             </a>
                             <div className="dropdown-menu dropdown-menu-right">
-                              {this.state.loaded === 1 ? (
-                                <button
-                                  onClick={this.updateData}
-                                  className="dropdown-item clk"
-                                >
-                                  {t("project_planning.upd_curr")}
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={this.saveData}
-                                  data-toggle="modal"
-                                  data-target="#save"
-                                  className="dropdown-item clk"
-                                >
-                                  {t("project_planning.save_curr")}
-                                </button>
-                              )}
                               <button
+                                onClick={(e) => e.preventDefault()}
                                 data-toggle="modal"
                                 data-target="#open"
                                 className="dropdown-item"
@@ -403,7 +481,7 @@ class ProjectPlanning extends Component {
                   <div className="mt-4"></div>
                   <h6 className="head6">{t("project_planning.new_task")}</h6>
                   <div className="table-responsive scroller">
-                    <ProjectPlanModal data={commonProps} />
+                    <ProjectPlanModal reset={this.reset} data={commonProps} />
                     <ProjectPlanOpen onSelectedName={this.handleTemplate} />
 
                     <table
@@ -422,7 +500,13 @@ class ProjectPlanning extends Component {
                       </thead>
                       <tbody>
                         {this.state.row_phase.map((r, index) => (
-                          <Row phase={r} key={index} items={this.state.items} />
+                          <Row
+                            phase={r}
+                            key={index}
+                            idx={index}
+                            items={this.state.items}
+                            deleteRow={this.deleteRow}
+                          />
                         ))}
 
                         <tr
@@ -447,7 +531,8 @@ class ProjectPlanning extends Component {
                         <tr className="text-right">
                           <td data-label="Items: "></td>
                           <td data-label="Duration(hrs): ">
-                            {t("project_planning.sub_total")}
+                            {this.state.left} {t("project_planning.sub_total")}{" "}
+                            {this.state.right}
                           </td>
                           <td data-label="Cost/hr: " id="2result">
                             {this.state.sub_total}
@@ -493,7 +578,8 @@ class ProjectPlanning extends Component {
                         </tr>
                         <tr className="text-right">
                           <td data-label="Items: ">
-                            {t("project_planning.total")}
+                            {this.state.left} {t("project_planning.total")}{" "}
+                            {this.state.right}
                           </td>
                           <td
                             colSpan="3"
@@ -506,6 +592,24 @@ class ProjectPlanning extends Component {
                       </tbody>
                     </table>
                   </div>
+
+                  {this.state.loaded > 0 ? (
+                    <button
+                      onClick={this.updateData}
+                      className="btn btn-primary clk"
+                    >
+                      {t("project_planning.upd_curr")}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={this.saveData}
+                      data-toggle="modal"
+                      data-target="#save"
+                      className="btn btn-primary clk"
+                    >
+                      {t("project_planning.save_curr")}
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -516,14 +620,18 @@ class ProjectPlanning extends Component {
   }
 }
 
-const Row = (props) => (
+export const Row = (props) => (
   <tr className="text-right i-val customerIDCell">
     <td
       data-value={props.phase.items}
       className="text-left "
       data-label="Items: "
     >
-      <span class="remove-row" id="myRemove">
+      <span
+        // onClick={(e) => props.deleteRow(props.idx)}
+        class="remove-row"
+        id="myRemove"
+      >
         ×
       </span>
       {props.phase.items}

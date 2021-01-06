@@ -18,6 +18,7 @@ import ListDetails from "../components/marketPlace/listingdetails/ListDetails";
 import Mycontracts from "../components/marketPlace/Mycontracts";
 import Reset from "../components/marketPlace/Reset";
 import Confirmed from "../components/marketPlace/Confirmed";
+import MyNotifications from "../components/marketPlace/MyNotifications";
 
 export {
   Login,
@@ -38,4 +39,5 @@ export {
   Mycontracts,
   Reset,
   Confirmed,
+  MyNotifications,
 };

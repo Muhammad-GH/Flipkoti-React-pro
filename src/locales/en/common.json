@@ -12,9 +12,12 @@
       "res_upd": "Resource Updated",
       "inv_ins": "Invoice Created",
       "prop_ins": "Proposal Created",
+      "phase_ins": "Phase Created",
+      "phase_upd": "Phase Updated",
       "pass_mat": "passwords don't match",
       "unique": "Unique Email Required",
       "all_fields_are_required": "All fields are required",
+      "bid_once": "Cannot bid more than once",
       "authentication_failed": "Authentication failed",
       "email_not_found": "Email not found!"
     },
@@ -57,8 +60,8 @@
         "city": "Select City",
         "offer": "Offer",
         "request": "Request",
-        "material": "Material",
-        "work": "Work"
+        "material": "Material included",
+        "work": "Work included"
       },
       "saved_job": "Saved Jobs"
     },
@@ -77,7 +80,7 @@
         "description": "Description",
         "main": "Main",
         "attachment": "Attachment",
-        "attachment_text": "Max 2 mb pdf, doc,",
+        "attachment_text": "pdf, doc, jpg, png",
         "product_images": "Product images",
         "product_images_text": "Multiple files upload allowed"
       },
@@ -94,13 +97,16 @@
       "listing": {
         "material_listings": "Material listings",
         "my_listings": "My listings",
+        "prop_listings": "Proposal listings",
+        "prop_company": "Company name",
         "create": "Create",
         "ref": "REF",
         "type": "Type",
         "start_date": "Start Date",
         "end_date": "End Date",
         "current_bid": "Current Bid",
-        "view": "View"
+        "view": "View",
+        "title": "Title"
       }
     },
     "c_work_list": {
@@ -123,6 +129,9 @@
       "submit_proposal": "Submit Proposal",
       "request_proposal": "Request Proposal",
       "cancel": "Cancel"
+    },
+    "my_notif":{
+      "title": "My Notification"
     },
     "header": {
       "my_bussiness": "My Bussiness",
@@ -172,7 +181,11 @@
       "password": "New Password",
       "language": "Default Language",
       "my_account": "My Account",
-      "logout": "Logout"
+      "permission": "Permission",
+      "logout": "Logout",
+      "pwd": "Update Password",
+      "proposal_guarantee": "Proposal Guarantee",
+      "agreement_guarantee": "Agreement Guarantee"
     },
     "b_sidebar": {
       "cus": {
@@ -202,6 +215,11 @@
         "resources": "Resources",
         "create_resources": "Create Resources",
         "resource_listing": "Resource Listing"
+      },
+      "phase": {
+        "phases": "Phases",
+        "create": "Create Phase",
+        "listing": "Phase Listing"
       }
     },
     "mycustomer": {
@@ -211,7 +229,7 @@
       "resource_type": "Resource Type"
     },
     "project_planning": {
-      "heading": "Project planning",
+      "heading": "Project planning template",
       "area": "Select area",
       "phase": "Add work phase",
       "new_task": "New tasks",
@@ -230,7 +248,7 @@
       "total": "Total"
     },
     "myproposal": {
-      "name": "Enter name",
+      "name": "Title",
       "scratch": "Create from scratch",
       "prop_request": "Create from request",
       "prop_upd": "Update draft proposal",
@@ -253,9 +271,10 @@
       "proposal_details": "Proposal details",
       "guarantees_for_work": "Guarantees for work",
       "insurance": "Insurance",
-      "prop_req_id": "Proposal Request ID",
+      "prop_req_id": "Proposal ID / Name",
       "message": "Message",
-      "prop_name": "Name",
+      "prop_name": "Proposal title",
+      "agree_name": "Agreement title",
       "Message": "PDF",
       "action": "Action"
     },
@@ -292,7 +311,7 @@
       "additional_work_prices": "Additional Work Prices",
       "upload_agreement_files": "Upload agreement files",
       "legal_txt": "Add your legal terms or other attachment related to this agreement here",
-      "agreement_req_id": "Agreement Request ID",
+      "agreement_req_id": "Agreement ID / Name",
       "attachments": "Attachments"
     },
     "invoice": {
@@ -308,13 +327,16 @@
       "service": "Service",
       "account": "Account",
       "client": "Client",
+      "name": "Name",
       "currency": "Currency",
+      "work_mat": "Work/Material",
       "item": "Item",
       "quantity": "Quantity",
       "unit": "Unit",
       "price": "Price",
       "amount": "Amount",
       "subtotal": "Subtotal",
+      "agree_name": "Agreement Name",
       "total": "Total",
       "attach_file": "Attach File",
       "note_to_recipient": "Note to recipient",
@@ -330,7 +352,114 @@
       "requests": "Requests",
       "Open": "Open",
       "Old": "Old",
-      "Expired": "Expired"
+      "Expired": "Expired",
+      "customers": "Customers"
+    },
+    "modals": {
+      "accept": {
+        "amount": "bid amount:",
+        "check": "I accept all the payment & agreement terms and condition"
+      },
+      "decline": {
+        "reason": "Reason for decline",
+        "message1": "Message for bidder",
+        "feedback": "Platform experience feedback"
+      },
+      "project_plan": {
+        "heading": "Project Planning",
+        "select_area": "Select area",
+        "template_name": "Template name",
+        "add_work_phase": "Add work phase",
+        "add": "Add",
+        "items": "Items",
+        "duration": "Duration(hrs)",
+        "cost_hr": "Cost/hr",
+        "total_cost": "Total cost",
+        "add_to_proposal": "Add to proposal",
+        "update_proposal": "Update Template",
+        "note": "Please save template after altering to prevent data loss..."
+      }
+    },
+    "phase": {
+      "phase": "Phase",
+      "create_phase": "Create Phase",
+      "list_phase": "My Phase",
+      "create_area_work": "Create Area Work",
+      "area_name": "Area Name",
+      "work_area": "Work Area"
+    },
+    "proposal_pdf": {
+      "proposal_to": "Proposal To",
+      "agreement_to": "Agreement To",
+      "proposal": "Proposal",
+      "agreement": "Agreement",
+      "phone_no": "Phone no:",
+      "business_ID": "Business ID:",
+      "other_info": "Other info",
+      "req": "Request ID #FK",
+      "prop_date": "Proposal Date:",
+      "due_date": "Due date:",
+      "proposal_summary": "Proposal Summary",
+      "work_cost": "Work Cost",
+      "material_cost": "Material Cost",
+      "total_cost": "Total Cost",
+      "mat_pay": "Materials payment terms",
+      "work_pay": "Work payment terms",
+      "terms": "Payment Terms",
+      "milestones": "Payment milestones",
+      "hourly_price": "Hourly price",
+      "project_plan": "Project Plan",
+      "work": "Work",
+      "material": "Material",
+      "proposal_details": "Proposal details",
+      "guarantee_for_work": "Guarantee for work",
+      "insurance": "Insurance",
+      "start_date": "Project start date:",
+      "end_date": "Project End date:",
+      "brand": "Powered by FlipkotiPro",
+      "trans": "Transportation payment terms",
+      "panelty_terms": "Panelty terms",
+      "guarantee_insurance": "Guarantee and insurance",
+      "guarantee_work": "Guarantee for work",
+      "guarantee_mat": "Guarantee for materials",
+      "agreement_insurance": "Agreement Insurance",
+      "legal": "Legal",
+      "client_res": "Client's Responsibility",
+      "contractor_res": "Contractor's Responsibility",
+      "legal_terms": "Legal terms agreed by both party",
+      "bill_to": "Bill to",
+      "invoice": "Invoice:",
+      "invoice_no": "Invoice no:",
+      "invoice_date": "Invoice date:",
+      "reference": "Reference:",
+      "account_number": "Account number:",
+      "payment_duration": "Payment duration:",
+      "delay_interests": "Delay Interest:",
+      "amount_due": "Amount due",
+      "description": "Description",
+      "quantity": "Quantity",
+      "unit": "Unit",
+      "price": "Price",
+      "amount": "Amount",
+      "subtotal": "Subtotal",
+      "vat": "Vat",
+      "total": "Total",
+      "notes": "Notes",
+      "_terms": "Terms",
+      "condition": "Condition"
+    },
+    "agreement_vals": {
+      "responsibilities": {
+        "water": "Water",
+        "timber": "Timber",
+        "electricity": "Electricity",
+        "plumbing": "Plumbing"
+      },
+      "legal": {
+        "timber": "Timber",
+        "electricity": "Electricity",
+        "plumbing": "Plumbing"
+      }
     }
   }
 }

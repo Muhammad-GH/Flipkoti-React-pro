@@ -1,7 +1,8 @@
 import React from "react";
 import { Helper, url } from "../../../helper/helper";
+import { withTranslation } from "react-i18next";
 
-const PDFViewInvoice = ({ businessInfo, userInfo }) => {
+const PDFViewInvoice = ({ businessInfo, userInfo, t }) => {
   return (
     <div
       className="modal fade"
@@ -53,26 +54,21 @@ const PDFViewInvoice = ({ businessInfo, userInfo }) => {
                     <div className="row">
                       <div className="col-md-6 col-lg-4">
                         <address>
-                          Salaojalinja Oy Kaskelantie
                           <br />
                           {businessInfo.address}
                           <br />
-                          Phone no: {businessInfo.phone}
+                          {t("proposal_pdf.phone_no")} {businessInfo.phone}
                           <br />
-                          Business ID: {businessInfo.id}
+                          {t("proposal_pdf.business_ID")} {businessInfo.id}
                           <br />
-                          Tax No: SM1212547
-                          <br />
-                          Other info
+                          {t("proposal_pdf.other_info")}
                         </address>
                       </div>
                       <div className="col-md-6 col-lg-4">
                         <address>
                           <p className="mb-2">
-                            <b>Bill to</b>
+                            <b>{t("proposal_pdf.bill_to")}</b>
                           </p>
-                          Salarem
-                          <br />
                           {userInfo.client_id}
                           <br />
                         </address>
@@ -82,24 +78,24 @@ const PDFViewInvoice = ({ businessInfo, userInfo }) => {
                   </div>
                   <div className="col-md-4">
                     <div className="float-md-right float-sm-none">
-                      <h2>Invoice</h2>
+                      <h2>{t("proposal_pdf.invoice")}</h2>
                       <address>
-                        Invoice no: {userInfo.invoice_number}
+                        {t("proposal_pdf.invoice_no")} {userInfo.invoice_number}
                         <br />
-                        Invoice date: {userInfo.date}
+                        {t("proposal_pdf.invoice_date")} {userInfo.date}
                         <br />
-                        Reference: {userInfo.reference}
+                        {t("proposal_pdf.reference")} {userInfo.reference}
                         <br />
-                        Account number: {userInfo.acc_no}
+                        {t("proposal_pdf.account_number")} {userInfo.acc_no}
                         <br />
-                        Payment duration: {userInfo.pay_term}
+                        {t("proposal_pdf.payment_duration")} {userInfo.pay_term}
                         <br />
-                        Due date: {userInfo.due_date}
+                        {t("proposal_pdf.due_date")} {userInfo.due_date}
                         <br />
-                        Delay Interest: {userInfo.interest}%
+                        {t("proposal_pdf.delay_interests")} {userInfo.interest}%
                       </address>
                       <div className="due-amount">
-                        <h5>Amount due</h5>
+                        <h5>{t("proposal_pdf.amount_due")}</h5>
                         <span className="price">
                           {userInfo.left} {userInfo.totalInput} {userInfo.right}
                         </span>
@@ -114,13 +110,15 @@ const PDFViewInvoice = ({ businessInfo, userInfo }) => {
                     <thead>
                       <tr>
                         <th>
-                          <h3 className="m-0">Description</h3>
+                          <h3 className="m-0">
+                            {t("proposal_pdf.description")}
+                          </h3>
                         </th>
-                        <th>Quantity</th>
-                        <th>Unit</th>
-                        <th>Price</th>
+                        <th>{t("proposal_pdf.quantity")}</th>
+                        <th>{t("proposal_pdf.unit")}</th>
+                        <th>{t("proposal_pdf.price")}</th>
                         <th>
-                          <h3 className="m-0">Amount</h3>
+                          <h3 className="m-0">{t("proposal_pdf.amount")}</h3>
                         </th>
                       </tr>
                     </thead>
@@ -152,23 +150,20 @@ const PDFViewInvoice = ({ businessInfo, userInfo }) => {
                             <tbody>
                               <tr>
                                 <td />
-                                <td>Subtotal</td>
+                                <td>{t("proposal_pdf.subtotal")}</td>
                                 <td>
                                   {userInfo.left} {userInfo.subInput}{" "}
                                   {userInfo.right}
                                 </td>
                               </tr>
                               <tr>
-                                <td>Vat</td>
+                                <td>{t("proposal_pdf.vat")}</td>
                                 <td>{userInfo.taxInput}%</td>
-                                <td>
-                                  {userInfo.left} {userInfo.taxCalcInput}{" "}
-                                  {userInfo.right}
-                                </td>
+                                <td>{userInfo.taxCalcInput} </td>
                               </tr>
                               <tr>
                                 <td />
-                                <td>Total</td>
+                                <td>{t("proposal_pdf.total")}</td>
                                 <td>
                                   <b>
                                     {userInfo.left} {userInfo.totalInput}{" "}
@@ -189,7 +184,7 @@ const PDFViewInvoice = ({ businessInfo, userInfo }) => {
                 <br />
                 <div className="row">
                   <div className="col-md-6">
-                    <h4>Notes</h4>
+                    <h4>{t("proposal_pdf.notes")}</h4>
                     <p>{userInfo.note} </p>
                     <br />
                     <br />
@@ -197,7 +192,10 @@ const PDFViewInvoice = ({ businessInfo, userInfo }) => {
                     <br />
                   </div>
                   <div className="col-md-6">
-                    <h4>Terms &amp; Condition </h4>
+                    <h4>
+                      {t("proposal_pdf._terms")} &amp;{" "}
+                      {t("proposal_pdf.condition")}{" "}
+                    </h4>
                     <p>{userInfo.terms}</p>
                     <br />
                     <br />
@@ -211,7 +209,7 @@ const PDFViewInvoice = ({ businessInfo, userInfo }) => {
                 <br />
               </div>
               <div className="pdf-footer">
-                <p>Powered by FlipkotiPro</p>
+                <p>{t("proposal_pdf.brand")}</p>
               </div>
             </div>
           </div>
@@ -221,4 +219,4 @@ const PDFViewInvoice = ({ businessInfo, userInfo }) => {
   );
 };
 
-export default PDFViewInvoice;
+export default withTranslation()(PDFViewInvoice);
